@@ -1,0 +1,4 @@
+interface:
+  display_name: "FastAPI Module Workflow"
+  short_description: "Build FastAPI modules with consistent boundaries and tests"
+  default_prompt: "Use $fastapi-module-workflow to implement this FastAPI module with the project conventions."

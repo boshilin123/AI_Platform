@@ -1,0 +1,4 @@
+interface:
+  display_name: "LLM Call Audit Workflow"
+  short_description: "Validate LLM retries token usage errors and audit records"
+  default_prompt: "Use $llm-call-audit-workflow to review this LLM call path and its audit behavior."

@@ -1,0 +1,67 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ai_platform}
+      MYSQL_USER: ${MYSQL_USER:-ai_platform}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ai-platform
+
+  api:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_CORS_ORIGINS: http://localhost
+      DATABASE_URL: mysql+asyncmy://${MYSQL_USER:-ai_platform}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-ai_platform}?charset=utf8mb4
+      AUTO_CREATE_TABLES: "false"
+      AI_MOCK_MODE: ${AI_MOCK_MODE:-false}
+      GPTSAPI_BASE_URL: ${GPTSAPI_BASE_URL:-https://api.gptsapi.net/v1}
+      GPTSAPI_API_KEY: ${GPTSAPI_API_KEY:-}
+      GPTSAPI_MODEL: ${GPTSAPI_MODEL:-gpt-5.6-luna}
+      AI_CONNECT_TIMEOUT_SECONDS: ${AI_CONNECT_TIMEOUT_SECONDS:-10}
+      AI_READ_TIMEOUT_SECONDS: ${AI_READ_TIMEOUT_SECONDS:-120}
+      AI_STREAM_IDLE_TIMEOUT_SECONDS: ${AI_STREAM_IDLE_TIMEOUT_SECONDS:-30}
+      AI_MAX_RETRIES: ${AI_MAX_RETRIES:-2}
+      AI_RETRY_DELAYS_SECONDS: ${AI_RETRY_DELAYS_SECONDS:-1,2}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN is required}
+      AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-90}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8080"
+    networks:
+      - ai-platform
+
+  web:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-80}:80"
+    depends_on:
+      - api
+    networks:
+      - ai-platform
+
+volumes:
+  mysql-data:
+
+networks:
+  ai-platform:
+    driver: bridge

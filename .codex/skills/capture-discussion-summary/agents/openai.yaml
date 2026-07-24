@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Platform Discussion Summary"
+  short_description: "Save durable AI platform context into project history"
+  default_prompt: "Use $capture-discussion-summary to save this AI platform discussion into AI-chat-history."

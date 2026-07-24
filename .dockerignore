@@ -1,0 +1,12 @@
+.git
+.codex
+AI-chat-history
+Prototype
+docs
+backend/.venv
+backend/.pytest_cache
+backend/**/__pycache__
+backend/data
+frontend/node_modules
+frontend/dist
+**/.env

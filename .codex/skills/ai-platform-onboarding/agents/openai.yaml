@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Platform Onboarding"
+  short_description: "Load current AI platform context and route project work"
+  default_prompt: "Use $ai-platform-onboarding to understand the current AI platform state before making changes."

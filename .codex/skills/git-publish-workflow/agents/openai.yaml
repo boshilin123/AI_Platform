@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Platform Git Workflow"
+  short_description: "Review validate commit and optionally publish project changes"
+  default_prompt: "Use $git-publish-workflow to review and publish AI platform changes safely."
