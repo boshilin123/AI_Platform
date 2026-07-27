@@ -1,41 +1,75 @@
-# API 契约
+# BLUEDOT AI 能力中台接口文档
 
-基础路径：`/api/v1`
+> 文档版本：0.1.0
+>
+> 最后更新：2026-07-24
+>
+> 维护原则：接口路由、请求字段、响应字段、状态码或鉴权方式发生变化时，必须在同一次修改中更新本文档。当前代码是最终事实来源。
 
-## 系统
+## 1. 接口概览
 
-```http
-GET /system/health
-GET /settings
-GET /dashboard/overview
-```
+### 1.1 基础信息
 
-`GET /settings` 只返回 `apiKeyConfigured`，不会返回 API Key 或掩码。
+| 项目 | 说明 |
+| --- | --- |
+| 服务名称 | BLUEDOT AI 能力中台 |
+| API 基础路径 | `/api/v1` |
+| 默认本地地址 | `http://127.0.0.1:8080` |
+| 部署统一入口 | `http://<server-ip>:18554` |
+| 部署前端 | `http://<server-ip>:18554/` |
+| 部署 Swagger UI | `http://<server-ip>:18554/docs` |
+| 部署 OpenAPI JSON | `http://<server-ip>:18554/openapi.json` |
+| 请求与响应命名 | JSON 字段使用 `camelCase` |
+| 招聘接口模式 | 非流式、结构化 JSON 输出 |
+| 字符编码 | UTF-8 |
 
-## 招聘
+### 1.2 当前接口目录
 
-```http
-POST /recruitment/resumes/parse
-POST /recruitment/screenings/evaluate
-POST /recruitment/interview-kits/generate
-```
+| 类别 | 方法 | 路径 | 内部鉴权 | 状态 |
+| --- | --- | --- | --- | --- |
+| 系统 | GET | `/api/v1/system/health` | 否 | 已实现 |
+| 工作台 | GET | `/api/v1/dashboard/overview` | 是 | 已实现 |
+| 招聘助手 | POST | `/api/v1/recruitment/resumes/parse` | 是 | 已实现 |
+| 招聘助手 | POST | `/api/v1/recruitment/resumes/parse-file` | 是 | 已实现 |
+| 招聘助手 | POST | `/api/v1/recruitment/screenings/evaluate` | 是 | 已实现 |
+| 招聘助手 | POST | `/api/v1/recruitment/interview-kits/generate` | 是 | 已实现 |
+| 调用审计 | GET | `/api/v1/audits` | 是 | 已实现 |
+| 调用审计 | GET | `/api/v1/audits/export` | 是 | 已实现 |
+| 基础配置 | GET | `/api/v1/settings` | 是 | 已实现 |
 
-成功返回：
+## 2. 通用约定
+
+### 2.1 请求头
+
+| 请求头 | 必填 | 适用范围 | 说明 |
+| --- | --- | --- | --- |
+| `Content-Type` | POST 请求必填 | 招聘接口 | 文本接口使用 `application/json`；文件接口使用 `multipart/form-data` |
+| `X-Request-ID` | 否 | 全部接口 | 调用方请求编号，最长使用前 96 个字符；未提供时由服务生成 |
+| `X-Internal-Token` | 视环境而定 | 除健康检查外 | 服务端配置后必填；部署管理端由 Nginx 注入，其他内部调用方自行传递 |
+| `X-Caller-System` | 否 | 招聘助手 | 调用方系统标识，最长使用前 64 个字符；默认 `ai-platform-web` |
+
+所有响应都包含 `X-Request-ID` 响应头。
+
+`X-Caller-System` 只用于审计归属，不应被当作独立鉴权凭证。共享和生产环境必须通过受控身份或内部鉴权确定调用方。
+
+### 2.2 成功响应
+
+除 CSV 导出外，成功响应统一使用：
 
 ```json
 {
   "success": true,
-  "requestId": "ai-20260724-000001",
+  "requestId": "ai-0123456789abcdef",
   "data": {}
 }
 ```
 
-失败返回：
+### 2.3 失败响应
 
 ```json
 {
   "success": false,
-  "requestId": "ai-20260724-000001",
+  "requestId": "ai-0123456789abcdef",
   "error": {
     "code": "AI_UPSTREAM_TIMEOUT",
     "message": "AI 服务响应超时，请稍后重试",
@@ -44,19 +78,543 @@ POST /recruitment/interview-kits/generate
 }
 ```
 
-## 审计
+### 2.4 常见 HTTP 状态码
+
+| HTTP 状态 | 说明 |
+| ---: | --- |
+| 200 | 请求成功 |
+| 400 | 请求被上游拒绝或业务请求不合法 |
+| 401 | 内部调用鉴权失败 |
+| 422 | FastAPI/Pydantic 请求参数校验失败，使用统一错误响应 |
+| 413 | 简历文件、PDF 页数或 DOCX 解压内容超过限制 |
+| 415 | 简历文件类型或 MIME 类型不受支持 |
+| 500 | 未分类内部错误 |
+| 502 | 上游认证、模型、响应格式或其他上游错误 |
+| 503 | 上游限流、网络错误或服务不可用 |
+| 504 | 上游调用超时 |
+
+完整错误码及重试语义见 [error-codes.md](error-codes.md)。
+
+### 2.5 隐私与审计
+
+- 真实上游 API Key 不进入请求、响应、前端状态和普通日志。
+- 招聘业务结果只返回给调用方，当前不持久化。
+- 审计只保存请求内容的 SHA-256、长度、能力编号、Token、耗时和状态。
+- 审计不保存完整简历、岗位说明、提示词或模型完整响应。
+- 一次业务请求产生一条业务审计；重试和格式修复分别计入上游调用次数。
+
+## 3. 系统接口
+
+### 3.1 健康检查
 
 ```http
-GET /audits?page=1&pageSize=20
-GET /audits/export
+GET /api/v1/system/health
 ```
 
-支持 `status`、`capabilityCode` 和 `requestId` 筛选。导出格式为 CSV。
+用于检查 API 进程和数据库连接。该接口不要求 `X-Internal-Token`。
 
-## 调用方请求头
+注意：`llmMode=upstream` 只表示当前配置为真实上游模式，不代表健康检查执行了真实模型请求。
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "requestId": "ai-0123456789abcdef",
+  "data": {
+    "status": "ok",
+    "service": "BLUEDOT AI 能力中台",
+    "environment": "development",
+    "database": "ok",
+    "llmMode": "mock"
+  }
+}
+```
+
+字段说明：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `status` | string | 服务状态，当前成功时为 `ok` |
+| `service` | string | 服务名称 |
+| `environment` | string | 当前运行环境 |
+| `database` | string | 数据库检查状态 |
+| `llmMode` | string | `mock` 或 `upstream` |
+
+## 4. 工作台接口
+
+### 4.1 获取工作台概览
+
+```http
+GET /api/v1/dashboard/overview
+```
+
+统计范围为服务器 UTC 当日 00:00 至当前时间，最近调用返回最新 5 条业务审计。
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "requestId": "ai-0123456789abcdef",
+  "data": {
+    "stats": {
+      "businessRequests": 3,
+      "upstreamCalls": 4,
+      "totalTokens": 1520,
+      "successRate": 100.0,
+      "retryCount": 0,
+      "averageDurationMs": 3200
+    },
+    "recentRequests": [],
+    "generatedAt": "2026-07-24T08:00:00Z"
+  }
+}
+```
+
+统计字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `businessRequests` | integer | 业务请求数量 |
+| `upstreamCalls` | integer | 上游调用总数，包含传输重试和格式修复 |
+| `totalTokens` | integer | 输入与输出 Token 总数 |
+| `successRate` | number | 业务请求成功率，范围 0-100 |
+| `retryCount` | integer | 传输重试总数，不包含格式修复 |
+| `averageDurationMs` | integer | 业务请求平均耗时，单位毫秒 |
+| `recentRequests` | AuditItem[] | 最新 5 条业务审计，字段见 6.1 |
+| `generatedAt` | datetime | 统计生成时间，ISO 8601 |
+
+## 5. 招聘助手接口
+
+招聘接口均使用非流式结构化输出。AI 评分与建议只用于辅助人工判断，不代表自动录用决定。
+
+### 5.1 简历文本解析
+
+```http
+POST /api/v1/recruitment/resumes/parse
+Content-Type: application/json
+```
+
+能力编号：`recruitment.resume.parse`
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 约束 | 说明 |
+| --- | --- | --- | --- | --- |
+| `resumeText` | string | 是 | 20-100000 字符 | 简历文本 |
+
+请求示例：
+
+```json
+{
+  "resumeText": "候选人示例，软件工程专业，熟悉 Python、FastAPI 和 SQL，参与过内部数据分析服务开发。"
+}
+```
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "requestId": "ai-0123456789abcdef",
+  "data": {
+    "name": "候选人示例",
+    "school": null,
+    "major": "软件工程",
+    "graduationTime": null,
+    "skills": [
+      "Python",
+      "FastAPI",
+      "SQL"
+    ],
+    "projects": [
+      {
+        "name": "内部数据分析服务",
+        "summary": "参与接口开发与测试",
+        "technologies": [
+          "Python",
+          "FastAPI"
+        ],
+        "risks": [
+          "项目规模和个人职责需要人工核实"
+        ]
+      }
+    ]
+  }
+}
+```
+
+响应字段：
+
+| 字段 | 类型 | 可为空 | 说明 |
+| --- | --- | --- | --- |
+| `name` | string | 是 | 候选人姓名 |
+| `school` | string | 是 | 学校 |
+| `major` | string | 是 | 专业 |
+| `graduationTime` | string | 是 | 毕业时间 |
+| `skills` | string[] | 否 | 技能列表 |
+| `projects` | ProjectExperience[] | 否 | 项目经历 |
+| `projects[].name` | string | 否 | 项目名称 |
+| `projects[].summary` | string | 否 | 项目摘要 |
+| `projects[].technologies` | string[] | 否 | 项目技术 |
+| `projects[].risks` | string[] | 否 | 需人工核实的风险 |
+
+### 5.2 岗位匹配与初筛
+
+```http
+POST /api/v1/recruitment/screenings/evaluate
+Content-Type: application/json
+```
+
+能力编号：`recruitment.screening.evaluate`
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 约束 | 说明 |
+| --- | --- | --- | --- | --- |
+| `resumeText` | string | 是 | 20-100000 字符 | 简历文本 |
+| `jobDescription` | string | 是 | 20-50000 字符 | 岗位职责与要求 |
+
+请求示例：
+
+```json
+{
+  "resumeText": "候选人示例，熟悉 Python、FastAPI 和 SQL，参与过内部数据分析服务开发。",
+  "jobDescription": "招聘 AI 应用开发工程师，要求熟悉 Python、接口开发、关系数据库和自动化测试。"
+}
+```
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "requestId": "ai-0123456789abcdef",
+  "data": {
+    "matchScore": 82,
+    "recommendation": "建议进入人工面试",
+    "confidence": 0.86,
+    "strengths": [
+      "技术方向与岗位要求匹配"
+    ],
+    "risks": [
+      "实际项目职责需要核实"
+    ],
+    "interviewFocus": [
+      "项目职责边界",
+      "接口稳定性设计"
+    ],
+    "finalComment": "建议由面试官结合项目细节进行人工复核。"
+  }
+}
+```
+
+响应字段：
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| `matchScore` | integer | 0-100 | 岗位匹配分 |
+| `recommendation` | string | - | 辅助建议 |
+| `confidence` | number | 0-1 | 模型对结果的置信度 |
+| `strengths` | string[] | - | 匹配优势 |
+| `risks` | string[] | - | 风险和待核实点 |
+| `interviewFocus` | string[] | - | 建议面试关注点 |
+| `finalComment` | string | - | 人工复核导向的总结 |
+
+### 5.3 面试题生成
+
+```http
+POST /api/v1/recruitment/interview-kits/generate
+Content-Type: application/json
+```
+
+能力编号：`recruitment.interview-kit.generate`
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 约束 | 说明 |
+| --- | --- | --- | --- | --- |
+| `resumeText` | string | 是 | 20-100000 字符 | 简历文本 |
+| `jobDescription` | string | 是 | 20-50000 字符 | 岗位职责与要求 |
+| `screeningRisks` | string[] | 否 | 最多 30 项 | 初筛阶段发现的风险点 |
+
+请求示例：
+
+```json
+{
+  "resumeText": "候选人示例，熟悉 Python、FastAPI 和 SQL，参与过内部数据分析服务开发。",
+  "jobDescription": "招聘 AI 应用开发工程师，要求熟悉 Python、接口开发、关系数据库和自动化测试。",
+  "screeningRisks": [
+    "项目规模和个人职责需要核实"
+  ]
+}
+```
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "requestId": "ai-0123456789abcdef",
+  "data": {
+    "questions": [
+      {
+        "type": "项目验真",
+        "question": "请说明你在项目中独立负责的模块以及主要技术决策。",
+        "purpose": "核实项目职责边界"
+      }
+    ]
+  }
+}
+```
+
+响应字段：
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| `questions` | InterviewQuestion[] | 1-30 项 | 面试题列表 |
+| `questions[].type` | string | - | 题目类别 |
+| `questions[].question` | string | - | 面试问题 |
+| `questions[].purpose` | string | - | 出题目的 |
+
+### 5.4 简历文件解析
+
+```http
+POST /api/v1/recruitment/resumes/parse-file
+Content-Type: multipart/form-data
+```
+
+能力编号：`recruitment.resume.parse`
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 约束 | 说明 |
+| --- | --- | --- | --- | --- |
+| `file` | binary | 是 | 最大 10MB | 文本型 PDF 或 DOCX 简历 |
+
+默认安全限制：
+
+- PDF 最多 20 页；加密 PDF、扫描版 PDF、图片简历和 OCR 暂不支持。
+- DOCX 必须是合法的 Office Open XML 文档，不接受含宏文件；解压后总大小最多 50MB。
+- 提取文本最多向模型提交 100000 字符，超出部分截断。
+- 文件仅在本次请求中读取并提取文本，请求完成后释放，不写入 MySQL 或对象存储。
+- 审计保存原文件 SHA-256 和字节数，不保存文件名、原文件或提取正文。
+- 成功响应与 5.1 的 `ResumeParseResult` 完全相同。
+
+示例：
+
+```bash
+curl -X POST "http://<server-ip>:18554/api/v1/recruitment/resumes/parse-file" \
+  -H "X-Caller-System: recruitment-test" \
+  -F "file=@./candidate.docx"
+```
+
+文件接口特有错误：
+
+| HTTP | 错误码 | 说明 |
+| ---: | --- | --- |
+| 413 | `AI_FILE_TOO_LARGE` | 文件字节数、PDF 页数或 DOCX 解压大小超过限制 |
+| 415 | `AI_UNSUPPORTED_FILE_TYPE` | 扩展名或 MIME 类型不支持/不匹配 |
+| 422 | `AI_FILE_CORRUPTED` | 文件为空、签名或内部结构损坏 |
+| 422 | `AI_PDF_ENCRYPTED` | PDF 需要密码 |
+| 422 | `AI_RESUME_TEXT_NOT_FOUND` | 未提取到足够文本，常见于扫描版 PDF |
+
+## 6. 调用审计接口
+
+### 6.1 分页查询业务审计
+
+```http
+GET /api/v1/audits
+```
+
+查询参数：
+
+| 参数 | 类型 | 必填 | 默认值 | 约束 | 说明 |
+| --- | --- | --- | --- | --- | --- |
+| `page` | integer | 否 | 1 | >= 1 | 页码 |
+| `pageSize` | integer | 否 | 20 | 1-100 | 每页数量 |
+| `status` | string | 否 | - | 建议 `success`/`failed` | 精确匹配业务状态 |
+| `capabilityCode` | string | 否 | - | - | 精确匹配能力编号 |
+| `requestId` | string | 否 | - | - | 当前实现为包含匹配 |
+
+请求示例：
+
+```http
+GET /api/v1/audits?page=1&pageSize=20&status=success&capabilityCode=recruitment.resume.parse
+```
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "requestId": "ai-query-request-id",
+  "data": {
+    "items": [
+      {
+        "requestId": "ai-business-request-id",
+        "businessCode": "recruitment",
+        "capabilityCode": "recruitment.resume.parse",
+        "callerSystem": "ai-platform-web",
+        "interfacePath": "/api/v1/recruitment/resumes/parse",
+        "requestMode": "non_stream",
+        "model": "gpt-5.6-luna",
+        "status": "success",
+        "httpStatus": 200,
+        "errorCode": null,
+        "retryCount": 0,
+        "upstreamCallCount": 1,
+        "promptTokens": 320,
+        "completionTokens": 180,
+        "totalTokens": 500,
+        "durationMs": 3200,
+        "promptVersion": "v1.0",
+        "createdAt": "2026-07-24T08:00:00Z"
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "total": 1
+  }
+}
+```
+
+`AuditItem` 字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `requestId` | string | 业务请求编号 |
+| `businessCode` | string | 业务编号，当前为 `recruitment` |
+| `capabilityCode` | string | 能力编号 |
+| `callerSystem` | string | 调用方系统 |
+| `interfacePath` | string | 业务接口路径 |
+| `requestMode` | string | 当前招聘接口为 `non_stream` |
+| `model` | string | 实际或配置模型 |
+| `status` | string | `success` 或 `failed` |
+| `httpStatus` | integer | 业务响应 HTTP 状态 |
+| `errorCode` | string/null | 失败错误码 |
+| `retryCount` | integer | 传输重试次数 |
+| `upstreamCallCount` | integer | 上游调用次数，包含重试和格式修复 |
+| `promptTokens` | integer | 输入 Token |
+| `completionTokens` | integer | 输出 Token |
+| `totalTokens` | integer | Token 总数 |
+| `durationMs` | integer | 业务请求耗时，单位毫秒 |
+| `promptVersion` | string | Prompt 版本 |
+| `createdAt` | datetime | 创建时间，ISO 8601 |
+
+当前列表接口不返回完整请求、内容哈希、提示词、模型响应或上游尝试明细。
+
+### 6.2 导出业务审计
+
+```http
+GET /api/v1/audits/export
+```
+
+查询参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `status` | string | 否 | 精确匹配业务状态 |
+| `capabilityCode` | string | 否 | 精确匹配能力编号 |
+
+响应：
 
 ```text
-X-Request-ID       可选；未提供时由中台生成
-X-Caller-System    调用方系统标识
-X-Internal-Token   共享环境启用内部鉴权时必填
+Content-Type: text/csv; charset=utf-8
+Content-Disposition: attachment; filename="ai-audits.csv"
 ```
+
+导出最多返回最新 5000 条记录，CSV 包含 UTF-8 BOM。CSV 列：
+
+```text
+Request ID
+业务
+能力
+调用方
+状态
+错误码
+上游调用
+重试
+Token
+耗时(ms)
+时间
+```
+
+CSV 不包含 API Key、内部 Token、请求原文、完整提示词或模型响应。
+
+## 7. 基础配置接口
+
+### 7.1 查询安全运行配置
+
+```http
+GET /api/v1/settings
+```
+
+该接口只读，不提供保存或修改配置的能力。
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "requestId": "ai-0123456789abcdef",
+  "data": {
+    "environment": "development",
+    "mockMode": true,
+    "apiKeyConfigured": false,
+    "baseUrl": "https://api.gptsapi.net/v1",
+    "model": "gpt-5.6-luna",
+    "connectTimeoutSeconds": 10,
+    "readTimeoutSeconds": 120,
+    "streamIdleTimeoutSeconds": 30,
+    "maxRetries": 2,
+    "retryDelaysSeconds": [
+      1,
+      2
+    ],
+    "auditRetentionDays": 90,
+    "internalAuthEnabled": false
+  }
+}
+```
+
+字段说明：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `environment` | string | 运行环境 |
+| `mockMode` | boolean | 是否使用模拟模型 |
+| `apiKeyConfigured` | boolean | 服务端是否配置上游 Key |
+| `baseUrl` | string | 上游基础地址，不包含 Key |
+| `model` | string | 当前模型 |
+| `connectTimeoutSeconds` | number | 连接超时 |
+| `readTimeoutSeconds` | number | 非流式读取超时 |
+| `streamIdleTimeoutSeconds` | number | 流空闲超时 |
+| `maxRetries` | integer | 最大传输重试次数 |
+| `retryDelaysSeconds` | number[] | 默认重试等待时间 |
+| `auditRetentionDays` | integer | 配置的审计保留天数 |
+| `internalAuthEnabled` | boolean | 是否启用内部令牌校验 |
+
+接口永远不会返回真实 API Key、掩码 Key 或内部 Token。
+
+## 8. 能力编号
+
+| 业务 | 能力编号 | 对应接口 |
+| --- | --- | --- |
+| 招聘 | `recruitment.resume.parse` | `/recruitment/resumes/parse`、`/recruitment/resumes/parse-file` |
+| 招聘 | `recruitment.screening.evaluate` | `/recruitment/screenings/evaluate` |
+| 招聘 | `recruitment.interview-kit.generate` | `/recruitment/interview-kits/generate` |
+
+## 9. 文档维护清单
+
+发生以下变化时必须同步更新本文档：
+
+- 新增、删除或重命名路由。
+- 修改 HTTP 方法、路径、请求头或鉴权方式。
+- 修改请求/响应 Schema、字段约束或字段含义。
+- 修改状态码、错误码或重试语义。
+- 修改审计字段、导出列或统计口径。
+- 将“规划中”接口正式实现。
+
+接口实现完成但本文档未同步更新时，不应将该接口视为可交付状态。

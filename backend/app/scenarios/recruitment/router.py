@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -10,6 +12,7 @@ from app.core.security import get_caller_system, require_internal_token
 from app.db.session import get_db_session
 from app.infrastructure.llm.client import LlmClient
 from app.infrastructure.llm.dependencies import get_llm_client
+from app.scenarios.recruitment.file_parser import ResumeFileParser
 from app.scenarios.recruitment.schemas import (
     InterviewKitRequest,
     InterviewKitResult,
@@ -44,6 +47,31 @@ async def parse_resume(
         model=settings.gptsapi_model,
         payload=payload,
     )
+    return SuccessResponse(request_id=request_id, data=data)
+
+
+@router.post("/resumes/parse-file", response_model=SuccessResponse[ResumeParseResult])
+async def parse_resume_file(
+    file: Annotated[UploadFile, File(description="PDF 或 DOCX 简历文件")],
+    caller_system: str = Depends(get_caller_system),
+    session: AsyncSession = Depends(get_db_session),
+    llm_client: LlmClient = Depends(get_llm_client),
+    settings: Settings = Depends(get_settings),
+) -> SuccessResponse[ResumeParseResult]:
+    request_id = get_request_id()
+    try:
+        data = await RecruitmentService(
+            file_parser=ResumeFileParser(settings)
+        ).parse_resume_file(
+            session=session,
+            llm_client=llm_client,
+            request_id=request_id,
+            caller_system=caller_system,
+            model=settings.gptsapi_model,
+            upload=file,
+        )
+    finally:
+        await file.close()
     return SuccessResponse(request_id=request_id, data=data)
 
 

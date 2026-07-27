@@ -20,6 +20,7 @@
 | 招聘助手 | `backend/app/scenarios/recruitment/`、`frontend/src/views/RecruitmentView.vue` |
 | 工作台 | `backend/app/modules/dashboard/`、`frontend/src/views/DashboardView.vue` |
 | 基础配置 | `backend/app/modules/settings/`、`frontend/src/views/SettingsView.vue` |
+| 前端视觉与原型 | `Prototype/AI 能力中台.html`、`frontend/src/App.vue`、`frontend/src/styles/main.css` |
 | 部署 | `deploy/`、`docs/deployment.md` |
 
 ## 日期记录
@@ -31,3 +32,7 @@ YYYY-MM-DD-topic-summary.md
 ```
 
 - `2026-07-24-repository-foundation-summary.md`：正式仓库基础版本、关键决策与验证结果。
+- `2026-07-24-recruitment-file-upload-summary.md`：PDF/DOCX 临时解析、审计修正、18554 统一入口与部署验证。
+- `2026-07-24-container-registry-mirror-summary.md`：Docker Hub 超时、DaoCloud 镜像代理切换和构建验证。
+- `2026-07-24-production-compose-deployment-summary.md`：MySQL 8.4 认证依赖修复、Alembic 迁移和三容器部署成功。
+- `2026-07-24-frontend-prototype-alignment-summary.md`：四个前端页面按原型 V2 对齐、公司 Logo 替换与构建验证。

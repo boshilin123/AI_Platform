@@ -37,6 +37,8 @@ class StructuredCapabilityExecutor:
         messages: list[LlmMessage],
         input_content: str,
         result_type: type[ResultT],
+        audit_content_hash: str | None = None,
+        audit_content_length: int | None = None,
     ) -> ResultT:
         started = perf_counter()
         attempts: list[UpstreamAttempt] = []
@@ -90,6 +92,8 @@ class StructuredCapabilityExecutor:
                         prompt_version=prompt_version,
                         model=actual_model,
                         input_content=input_content,
+                        audit_content_hash=audit_content_hash,
+                        audit_content_length=audit_content_length,
                         attempts=attempts,
                         usage=usage,
                         retry_count=retry_count,
@@ -109,6 +113,8 @@ class StructuredCapabilityExecutor:
                 prompt_version=prompt_version,
                 model=actual_model,
                 input_content=input_content,
+                audit_content_hash=audit_content_hash,
+                audit_content_length=audit_content_length,
                 attempts=attempts,
                 usage=usage,
                 retry_count=retry_count,
@@ -120,6 +126,8 @@ class StructuredCapabilityExecutor:
             return result
         except LlmUpstreamError as error:
             attempts.extend(error.attempts)
+            for attempt in error.attempts:
+                usage.add(attempt.usage)
             retry_count += max(0, len(error.attempts) - 1)
             await self._record(
                 session=session,
@@ -130,6 +138,8 @@ class StructuredCapabilityExecutor:
                 prompt_version=prompt_version,
                 model=actual_model,
                 input_content=input_content,
+                audit_content_hash=audit_content_hash,
+                audit_content_length=audit_content_length,
                 attempts=attempts,
                 usage=usage,
                 retry_count=retry_count,
@@ -151,6 +161,8 @@ class StructuredCapabilityExecutor:
         prompt_version: str,
         model: str,
         input_content: str,
+        audit_content_hash: str | None,
+        audit_content_length: int | None,
         attempts: list[UpstreamAttempt],
         usage: TokenUsage,
         retry_count: int,
@@ -160,6 +172,10 @@ class StructuredCapabilityExecutor:
         error_code: str | None,
     ) -> None:
         encoded = input_content.encode("utf-8")
+        content_hash = audit_content_hash or hashlib.sha256(encoded).hexdigest()
+        content_length = (
+            audit_content_length if audit_content_length is not None else len(input_content)
+        )
         await self.audit_service.record(
             session,
             AuditWrite(
@@ -178,8 +194,8 @@ class StructuredCapabilityExecutor:
                 completion_tokens=usage.completion_tokens,
                 total_tokens=usage.total_tokens,
                 duration_ms=int((perf_counter() - started) * 1000),
-                request_content_hash=hashlib.sha256(encoded).hexdigest(),
-                request_content_length=len(input_content),
+                request_content_hash=content_hash,
+                request_content_length=content_length,
                 prompt_version=prompt_version,
                 attempts=attempts,
             ),

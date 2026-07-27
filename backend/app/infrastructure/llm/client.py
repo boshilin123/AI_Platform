@@ -68,8 +68,37 @@ class OpenAICompatibleLlmClient:
                     )
                     duration_ms = int((perf_counter() - started) * 1000)
                     if response.is_success:
-                        parsed = response.json()
-                        usage = self._usage_from_payload(parsed.get("usage"))
+                        parsed: object = None
+                        try:
+                            parsed = response.json()
+                            if not isinstance(parsed, dict):
+                                raise TypeError("response root is not an object")
+                            usage = self._usage_from_payload(parsed.get("usage"))
+                            content = parsed["choices"][0]["message"]["content"]
+                            if not isinstance(content, str):
+                                raise TypeError("message content is not a string")
+                        except (ValueError, KeyError, IndexError, TypeError) as exc:
+                            usage_payload = parsed.get("usage") if isinstance(parsed, dict) else None
+                            usage = self._usage_from_payload(usage_payload)
+                            attempts.append(
+                                UpstreamAttempt(
+                                    attempt_no=attempt_no,
+                                    attempt_type=attempt_type,
+                                    status="failed",
+                                    http_status=response.status_code,
+                                    error_code=ErrorCode.UPSTREAM_UNAVAILABLE.value,
+                                    retryable=False,
+                                    duration_ms=duration_ms,
+                                    usage=usage,
+                                )
+                            )
+                            raise LlmUpstreamError(
+                                ErrorCode.UPSTREAM_UNAVAILABLE,
+                                "AI 上游返回结构异常",
+                                502,
+                                False,
+                                attempts=attempts,
+                            ) from exc
                         attempts.append(
                             UpstreamAttempt(
                                 attempt_no=attempt_no,
@@ -82,16 +111,6 @@ class OpenAICompatibleLlmClient:
                                 usage=usage,
                             )
                         )
-                        try:
-                            content = parsed["choices"][0]["message"]["content"]
-                        except (KeyError, IndexError, TypeError) as exc:
-                            raise LlmUpstreamError(
-                                ErrorCode.UPSTREAM_UNAVAILABLE,
-                                "AI 上游返回结构异常",
-                                502,
-                                False,
-                                attempts=attempts,
-                            ) from exc
                         return LlmResponse(
                             content=content or "",
                             model=str(parsed.get("model") or request.model),
@@ -261,23 +280,12 @@ class MockLlmClient:
         await asyncio.sleep(0)
         capability = self._capability_from_messages(request)
         content = json.dumps(self._result_for(capability), ensure_ascii=False)
-        usage = TokenUsage(prompt_tokens=320, completion_tokens=180, total_tokens=500)
+        usage = TokenUsage()
         return LlmResponse(
             content=content,
             model=self.model,
             usage=usage,
-            attempts=[
-                UpstreamAttempt(
-                    attempt_no=1,
-                    attempt_type=attempt_type,
-                    status="success",
-                    http_status=200,
-                    error_code=None,
-                    retryable=False,
-                    duration_ms=8,
-                    usage=usage,
-                )
-            ],
+            attempts=[],
         )
 
     async def stream(self, request: LlmRequest) -> AsyncIterator[str]:

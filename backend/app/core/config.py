@@ -42,6 +42,10 @@ class Settings(BaseSettings):
 
     internal_api_token: str = ""
     audit_retention_days: int = Field(default=90, ge=1, le=3650)
+    recruitment_max_upload_mb: int = Field(default=10, ge=1, le=50)
+    recruitment_max_pdf_pages: int = Field(default=20, ge=1, le=100)
+    recruitment_max_extracted_chars: int = Field(default=100_000, ge=1_000, le=500_000)
+    recruitment_max_docx_uncompressed_mb: int = Field(default=50, ge=1, le=200)
 
     @field_validator("app_cors_origins", mode="before")
     @classmethod

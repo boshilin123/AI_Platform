@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { apiRequest } from "../api/client";
-import EmptyState from "../components/EmptyState.vue";
 import ErrorNotice from "../components/ErrorNotice.vue";
 import type { DashboardData, HealthData } from "../types/api";
 
@@ -9,8 +8,23 @@ const dashboard = ref<DashboardData | null>(null);
 const health = ref<HealthData | null>(null);
 const loading = ref(true);
 const error = ref("");
-
 const number = new Intl.NumberFormat("zh-CN");
+
+const averageDuration = computed(() => {
+  const milliseconds = dashboard.value?.stats.averageDurationMs ?? 0;
+  return milliseconds >= 1000 ? `${(milliseconds / 1000).toFixed(1)}s` : `${milliseconds}ms`;
+});
+
+const chartPoints = computed(() => {
+  const items = [...(dashboard.value?.recentRequests ?? [])].reverse().slice(-8);
+  if (items.length < 2) return "0,150 100,105 210,126 320,72 430,94 540,46 650,62 760,28";
+  const maximum = Math.max(...items.map((item) => item.durationMs), 1);
+  return items.map((item, index) => {
+    const x = (index / (items.length - 1)) * 760;
+    const y = 170 - (item.durationMs / maximum) * 135;
+    return `${x.toFixed(0)},${y.toFixed(0)}`;
+  }).join(" ");
+});
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -35,74 +49,110 @@ onMounted(load);
 <template>
   <div class="stack-lg">
     <ErrorNotice v-if="error" :message="error" />
-    <section class="hero-card">
-      <div>
-        <span class="eyebrow">业务场景</span>
-        <h2>让 AI 能力真正进入业务流程</h2>
-        <p>当前首先开放招聘助手，后续业务场景将在同一底座上持续接入。</p>
-      </div>
-      <RouterLink class="button primary" to="/recruitment">进入招聘助手</RouterLink>
+
+    <section class="metric-grid" aria-label="今日运行指标">
+      <article class="metric-card">
+        <div class="metric-head">
+          <span class="metric-label">今日业务请求</span>
+          <span class="metric-icon"><svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" /></svg></span>
+        </div>
+        <strong>{{ number.format(dashboard?.stats.businessRequests ?? 0) }}</strong>
+        <small>上游调用 {{ number.format(dashboard?.stats.upstreamCalls ?? 0) }} 次</small>
+      </article>
+      <article class="metric-card">
+        <div class="metric-head">
+          <span class="metric-label">今日 Token</span>
+          <span class="metric-icon"><svg viewBox="0 0 24 24"><path d="M7 5h10M12 5v14M8 19h8" /></svg></span>
+        </div>
+        <strong>{{ number.format(dashboard?.stats.totalTokens ?? 0) }}</strong>
+        <small>输入与输出 Token 合计</small>
+      </article>
+      <article class="metric-card">
+        <div class="metric-head">
+          <span class="metric-label">调用成功率</span>
+          <span class="metric-icon"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg></span>
+        </div>
+        <strong>{{ (dashboard?.stats.successRate ?? 100).toFixed(1) }}%</strong>
+        <small>{{ number.format(dashboard?.stats.retryCount ?? 0) }} 次自动重试</small>
+      </article>
+      <article class="metric-card">
+        <div class="metric-head">
+          <span class="metric-label">平均响应耗时</span>
+          <span class="metric-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg></span>
+        </div>
+        <strong>{{ averageDuration }}</strong>
+        <small class="healthy"><span class="status-dot"></span>服务运行正常</small>
+      </article>
     </section>
 
     <section>
-      <div class="section-heading">
-        <div><span class="eyebrow">运行概览</span><h2>今日服务状态</h2></div>
-        <button class="button ghost" type="button" :disabled="loading" @click="load">刷新</button>
+      <div class="section-title-row">
+        <h2>业务场景</h2>
+        <span>当前已接入 1 个场景</span>
       </div>
-      <div class="metric-grid">
-        <article class="metric-card">
-          <span>业务请求</span><strong>{{ number.format(dashboard?.stats.businessRequests ?? 0) }}</strong>
-          <small>实际进入中台的请求</small>
+      <div class="scenario-layout">
+        <article class="panel scenario-card">
+          <div class="scenario-card-top">
+            <span class="scene-icon">
+              <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5h8v2M3 12h18M10 12v2h4v-2" /></svg>
+            </span>
+            <span class="status-tag">已上线</span>
+          </div>
+          <h2>招聘助手</h2>
+          <p>面向招聘流程提供简历信息提取、岗位匹配分析与针对性面试题生成，所有调用统一记录审计日志和 Token 用量。</p>
+          <div class="scene-tags"><span>简历解析</span><span>岗位初筛</span><span>面试题生成</span></div>
+          <div class="scene-actions">
+            <RouterLink class="button primary" to="/recruitment">
+              进入招聘助手
+              <svg width="15" height="15" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </RouterLink>
+          </div>
         </article>
-        <article class="metric-card">
-          <span>上游调用</span><strong>{{ number.format(dashboard?.stats.upstreamCalls ?? 0) }}</strong>
-          <small>包含格式修复与重试</small>
-        </article>
-        <article class="metric-card">
-          <span>Token 用量</span><strong>{{ number.format(dashboard?.stats.totalTokens ?? 0) }}</strong>
-          <small>输入与输出合计</small>
-        </article>
-        <article class="metric-card">
-          <span>成功率</span><strong>{{ (dashboard?.stats.successRate ?? 100).toFixed(1) }}%</strong>
-          <small class="healthy"><span class="status-dot"></span>服务运行正常</small>
+
+        <article class="panel future-card">
+          <div class="future-head"><strong>后续业务接入</strong><span class="status-tag">规划中</span></div>
+          <div class="future-list">
+            <div class="future-item">
+              <span class="future-item-icon"><svg viewBox="0 0 24 24"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22zM20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22z" /></svg></span>
+              <span class="future-item-name">培训助手</span><span class="future-item-state">待接入</span>
+            </div>
+            <div class="future-item">
+              <span class="future-item-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="2" /><rect x="3" y="14" width="18" height="6" rx="2" /></svg></span>
+              <span class="future-item-name">运维助手</span><span class="future-item-state">待接入</span>
+            </div>
+            <div class="future-item">
+              <span class="future-item-icon"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v5h5M9 12h6M9 16h6" /></svg></span>
+              <span class="future-item-name">文档助手</span><span class="future-item-state">待接入</span>
+            </div>
+          </div>
         </article>
       </div>
     </section>
 
-    <section class="two-column">
-      <article class="panel">
-        <div class="panel-heading"><div><span class="eyebrow">已开放</span><h2>招聘助手</h2></div><span class="badge success">可用</span></div>
-        <p class="panel-description">完成简历结构化、岗位匹配初筛和针对性面试题生成。</p>
-        <div class="capability-list">
-          <span>简历解析</span><span>岗位初筛</span><span>面试题生成</span>
-        </div>
-        <RouterLink class="text-link" to="/recruitment">开始使用 →</RouterLink>
-      </article>
-      <article class="panel">
-        <div class="panel-heading"><div><span class="eyebrow">服务状态</span><h2>基础依赖</h2></div></div>
-        <div class="service-list">
-          <div><span>API 服务</span><span class="badge success">正常</span></div>
-          <div><span>审计数据库</span><span class="badge success">{{ health?.database === "ok" ? "正常" : "检查中" }}</span></div>
-          <div><span>模型调用</span><span class="badge neutral">{{ health?.llmMode === "mock" ? "模拟模式" : "上游模式" }}</span></div>
-        </div>
-      </article>
-    </section>
-
-    <section class="panel">
-      <div class="panel-heading"><div><span class="eyebrow">最近调用</span><h2>招聘业务记录</h2></div><RouterLink class="text-link" to="/audits">查看全部</RouterLink></div>
-      <div v-if="dashboard?.recentRequests.length" class="table-wrap">
-        <table>
-          <thead><tr><th>请求编号</th><th>能力</th><th>状态</th><th>Token</th><th>耗时</th><th>时间</th></tr></thead>
-          <tbody>
-            <tr v-for="item in dashboard.recentRequests" :key="item.requestId">
-              <td class="mono">{{ item.requestId }}</td><td>{{ item.capabilityCode }}</td>
-              <td><span class="badge" :class="item.status === 'success' ? 'success' : 'danger'">{{ item.status === "success" ? "成功" : "失败" }}</span></td>
-              <td>{{ number.format(item.totalTokens) }}</td><td>{{ item.durationMs }} ms</td><td>{{ new Date(item.createdAt).toLocaleString("zh-CN") }}</td>
-            </tr>
-          </tbody>
-        </table>
+    <section>
+      <div class="section-title-row">
+        <h2>运行概览</h2>
+        <RouterLink class="button" to="/audits">查看调用审计</RouterLink>
       </div>
-      <EmptyState v-else title="暂无调用记录" description="使用招聘助手后，调用摘要会显示在这里。" />
+      <div class="overview-grid">
+        <article class="panel chart-card">
+          <div class="panel-heading">
+            <div><strong>近期响应耗时</strong><div class="muted">根据最近业务调用动态展示</div></div>
+            <button class="button" type="button" :disabled="loading" @click="load">{{ loading ? "刷新中" : "刷新" }}</button>
+          </div>
+          <div class="chart-placeholder" aria-label="最近请求耗时折线图">
+            <svg viewBox="0 0 760 190" preserveAspectRatio="none"><polyline :points="chartPoints" /></svg>
+          </div>
+        </article>
+        <article class="panel health-card">
+          <div class="panel-heading"><div><strong>基础服务</strong><div class="muted">当前依赖健康状态</div></div></div>
+          <div class="health-list">
+            <div class="health-item"><span class="health-badge">API</span><span class="health-copy"><strong>中台服务</strong><small>FastAPI 接口服务</small></span><span class="health-state">正常</span></div>
+            <div class="health-item"><span class="health-badge">DB</span><span class="health-copy"><strong>审计数据库</strong><small>MySQL 数据持久化</small></span><span class="health-state">{{ health?.database === "ok" ? "正常" : "检查中" }}</span></div>
+            <div class="health-item"><span class="health-badge">AI</span><span class="health-copy"><strong>模型调用</strong><small>{{ health?.llmMode === "mock" ? "模拟模式" : "上游模式" }}</small></span><span class="health-state">可用</span></div>
+          </div>
+        </article>
+      </div>
     </section>
   </div>
 </template>

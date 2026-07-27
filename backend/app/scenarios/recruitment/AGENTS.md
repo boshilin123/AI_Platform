@@ -5,6 +5,7 @@
 ## 接口
 
 - `POST /api/v1/recruitment/resumes/parse`
+- `POST /api/v1/recruitment/resumes/parse-file`
 - `POST /api/v1/recruitment/screenings/evaluate`
 - `POST /api/v1/recruitment/interview-kits/generate`
 
@@ -15,6 +16,7 @@
 - 输入和输出使用 Pydantic 严格校验。
 - 路由不得直接调用上游。
 - 不持久化简历和业务结果；审计只保存哈希和长度。
+- 文件接口只支持 PDF/DOCX 的临时文本提取，不引入对象存储，不支持扫描件/OCR。
 - 不能将 AI 评分描述为最终录用决定，返回内容必须保留人工复核语义。
 
 修改后验证三个接口、格式修复和审计记录。

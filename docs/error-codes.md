@@ -3,6 +3,11 @@
 | 错误码 | 是否重试 | 说明 |
 | --- | ---: | --- |
 | `AI_INVALID_REQUEST` | 否 | 业务参数错误 |
+| `AI_UNSUPPORTED_FILE_TYPE` | 否 | 简历扩展名或 MIME 类型不支持 |
+| `AI_FILE_TOO_LARGE` | 否 | 文件、PDF 页数或 DOCX 解压内容超过限制 |
+| `AI_FILE_CORRUPTED` | 否 | PDF/DOCX 为空、损坏或结构无效 |
+| `AI_PDF_ENCRYPTED` | 否 | PDF 需要密码 |
+| `AI_RESUME_TEXT_NOT_FOUND` | 否 | 未提取到足够可读文本 |
 | `AI_UPSTREAM_AUTH_ERROR` | 否 | 上游认证或权限错误 |
 | `AI_MODEL_NOT_FOUND` | 否 | 模型配置错误 |
 | `AI_CONTENT_REJECTED` | 否 | 内容被上游拒绝 |

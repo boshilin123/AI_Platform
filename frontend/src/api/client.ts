@@ -1,7 +1,6 @@
 import type { ApiError, ApiSuccess } from "../types/api";
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
-const internalToken = import.meta.env.VITE_INTERNAL_API_TOKEN ?? "";
 
 export class ApiClientError extends Error {
   constructor(
@@ -20,7 +19,6 @@ function headers(hasBody: boolean): HeadersInit {
     "X-Caller-System": "bluedot-ai-platform-web",
   };
   if (hasBody) result["Content-Type"] = "application/json";
-  if (internalToken) result["X-Internal-Token"] = internalToken;
   return result;
 }
 
@@ -28,10 +26,11 @@ export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<ApiSuccess<T>> {
+  const hasJsonBody = Boolean(init.body) && !(init.body instanceof FormData);
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     headers: {
-      ...headers(Boolean(init.body)),
+      ...headers(hasJsonBody),
       ...(init.headers ?? {}),
     },
   });
