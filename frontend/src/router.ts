@@ -26,5 +26,5 @@ export const router = createRouter({
 });
 
 router.afterEach((route) => {
-  document.title = `${String(route.meta.title)} · AI 能力中台`;
+  document.title = `${String(route.meta.title)} · AI Agent 中台`;
 });

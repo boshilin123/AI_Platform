@@ -4,8 +4,9 @@ import { apiRequest, downloadAuditCsv } from "../api/client";
 import EmptyState from "../components/EmptyState.vue";
 import ErrorNotice from "../components/ErrorNotice.vue";
 import type { AuditListData } from "../types/api";
+import { formatBeijingDateTime } from "../utils/datetime";
 
-const data = ref<AuditListData>({ items: [], page: 1, pageSize: 20, total: 0 });
+const data = ref<AuditListData>({ items: [], page: 1, pageSize: 10, total: 0 });
 const status = ref("");
 const capabilityCode = ref("");
 const requestId = ref("");
@@ -14,6 +15,8 @@ const error = ref("");
 const pageUpstreamCalls = computed(() => data.value.items.reduce((sum, item) => sum + item.upstreamCallCount, 0));
 const pageTokens = computed(() => data.value.items.reduce((sum, item) => sum + item.totalTokens, 0));
 const pageFailures = computed(() => data.value.items.filter((item) => item.status !== "success").length);
+const totalPages = computed(() => Math.max(1, Math.ceil(data.value.total / data.value.pageSize)));
+const hasFilters = computed(() => Boolean(status.value || capabilityCode.value || requestId.value.trim()));
 
 function query(includePage = true): string {
   const params = new URLSearchParams();
@@ -43,11 +46,13 @@ async function load(reset = false): Promise<void> {
 }
 
 async function changePage(delta: number): Promise<void> {
-  data.value.page += delta;
+  const nextPage = Math.min(totalPages.value, Math.max(1, data.value.page + delta));
+  if (nextPage === data.value.page) return;
+  data.value.page = nextPage;
   await load();
 }
 
-async function reset(): Promise<void> {
+async function clearFilters(): Promise<void> {
   status.value = "";
   capabilityCode.value = "";
   requestId.value = "";
@@ -87,7 +92,15 @@ onMounted(() => load());
           <input v-model="requestId" placeholder="搜索 Request ID" aria-label="请求编号" @keyup.enter="load(true)" />
           <button class="button primary" type="button" :disabled="loading" @click="load(true)">查询</button>
         </div>
-        <button class="button" type="button" :disabled="loading" @click="reset">重置</button>
+        <button
+          class="button"
+          type="button"
+          title="清空能力、状态和 Request ID 筛选条件"
+          :disabled="loading || !hasFilters"
+          @click="clearFilters"
+        >
+          清空筛选
+        </button>
       </div>
       <div v-if="data.items.length" class="table-wrap">
         <table>
@@ -100,7 +113,7 @@ onMounted(() => load());
               <td><span class="badge" :class="item.status === 'success' ? 'success' : 'danger'">{{ item.status === "success" ? "成功" : "失败" }}</span><small v-if="item.errorCode" class="cell-note error-text">{{ item.errorCode }}</small></td>
               <td>{{ item.upstreamCallCount }}<span v-if="item.retryCount">（重试 {{ item.retryCount }}）</span></td>
               <td>{{ item.totalTokens.toLocaleString() }}</td><td>{{ item.durationMs }} ms</td>
-              <td>{{ new Date(item.createdAt).toLocaleString("zh-CN") }}</td>
+              <td>{{ formatBeijingDateTime(item.createdAt) }}</td>
             </tr>
           </tbody>
         </table>
@@ -108,8 +121,9 @@ onMounted(() => load());
       <EmptyState v-else title="没有匹配的调用记录" description="调整筛选条件，或先在招聘助手中提交一次任务。" />
       <div class="pagination">
         <button class="button ghost" type="button" :disabled="data.page <= 1 || loading" @click="changePage(-1)">上一页</button>
-        <span>第 {{ data.page }} 页</span>
-        <button class="button ghost" type="button" :disabled="data.page * data.pageSize >= data.total || loading" @click="changePage(1)">下一页</button>
+        <span>第 {{ data.page }} 页 / 共 {{ totalPages }} 页</span>
+        <span class="pagination-detail">每页 {{ data.pageSize }} 条，共 {{ data.total }} 条</span>
+        <button class="button ghost" type="button" :disabled="data.page >= totalPages || loading" @click="changePage(1)">下一页</button>
       </div>
     </section>
   </div>

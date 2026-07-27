@@ -3,28 +3,44 @@ import { computed, onMounted, ref } from "vue";
 import { apiRequest } from "../api/client";
 import ErrorNotice from "../components/ErrorNotice.vue";
 import type { DashboardData, HealthData } from "../types/api";
+import { formatBeijingChartTime } from "../utils/datetime";
 
 const dashboard = ref<DashboardData | null>(null);
 const health = ref<HealthData | null>(null);
 const loading = ref(true);
 const error = ref("");
 const number = new Intl.NumberFormat("zh-CN");
+const CHART_LEFT = 68;
+const CHART_RIGHT = 742;
+const CHART_TOP = 18;
+const CHART_BOTTOM = 172;
 
 const averageDuration = computed(() => {
   const milliseconds = dashboard.value?.stats.averageDurationMs ?? 0;
   return milliseconds >= 1000 ? `${(milliseconds / 1000).toFixed(1)}s` : `${milliseconds}ms`;
 });
 
-const chartPoints = computed(() => {
-  const items = [...(dashboard.value?.recentRequests ?? [])].reverse().slice(-8);
-  if (items.length < 2) return "0,150 100,105 210,126 320,72 430,94 540,46 650,62 760,28";
-  const maximum = Math.max(...items.map((item) => item.durationMs), 1);
+const chartItems = computed(() => [...(dashboard.value?.recentRequests ?? [])].reverse());
+const chartMaximum = computed(() => Math.max(...chartItems.value.map((item) => item.durationMs), 1));
+const chartPointItems = computed(() => {
+  const items = chartItems.value;
   return items.map((item, index) => {
-    const x = (index / (items.length - 1)) * 760;
-    const y = 170 - (item.durationMs / maximum) * 135;
-    return `${x.toFixed(0)},${y.toFixed(0)}`;
-  }).join(" ");
+    const ratio = items.length === 1 ? 0.5 : index / (items.length - 1);
+    const x = CHART_LEFT + ratio * (CHART_RIGHT - CHART_LEFT);
+    const y = CHART_BOTTOM - (item.durationMs / chartMaximum.value) * (CHART_BOTTOM - CHART_TOP);
+    return {
+      item,
+      x,
+      y,
+      labelAnchor: index === 0 ? "start" : index === items.length - 1 ? "end" : "middle",
+    };
+  });
 });
+const chartPoints = computed(() => chartPointItems.value.map((point) => `${point.x},${point.y}`).join(" "));
+const chartYTicks = computed(() => [1, 0.5, 0].map((ratio) => ({
+  value: Math.round(chartMaximum.value * ratio),
+  y: CHART_BOTTOM - ratio * (CHART_BOTTOM - CHART_TOP),
+})));
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -140,8 +156,34 @@ onMounted(load);
             <div><strong>近期响应耗时</strong><div class="muted">根据最近业务调用动态展示</div></div>
             <button class="button" type="button" :disabled="loading" @click="load">{{ loading ? "刷新中" : "刷新" }}</button>
           </div>
-          <div class="chart-placeholder" aria-label="最近请求耗时折线图">
-            <svg viewBox="0 0 760 190" preserveAspectRatio="none"><polyline :points="chartPoints" /></svg>
+          <div class="chart-placeholder">
+            <svg viewBox="0 0 760 226" role="img" aria-labelledby="duration-chart-title duration-chart-description">
+              <title id="duration-chart-title">近期业务请求响应耗时</title>
+              <desc id="duration-chart-description">横轴为调用时间，纵轴为业务请求响应耗时，单位毫秒。</desc>
+              <g v-for="tick in chartYTicks" :key="tick.y" class="chart-grid-line">
+                <line :x1="CHART_LEFT" :x2="CHART_RIGHT" :y1="tick.y" :y2="tick.y" />
+                <text :x="CHART_LEFT - 10" :y="tick.y + 4" text-anchor="end">{{ number.format(tick.value) }}</text>
+              </g>
+              <line class="chart-axis" :x1="CHART_LEFT" :x2="CHART_LEFT" :y1="CHART_TOP" :y2="CHART_BOTTOM" />
+              <line class="chart-axis" :x1="CHART_LEFT" :x2="CHART_RIGHT" :y1="CHART_BOTTOM" :y2="CHART_BOTTOM" />
+              <polyline v-if="chartPointItems.length > 1" class="chart-line" :points="chartPoints" />
+              <g v-for="point in chartPointItems" :key="point.item.requestId">
+                <circle class="chart-point" :cx="point.x" :cy="point.y" r="4">
+                  <title>{{ formatBeijingChartTime(point.item.createdAt) }}，{{ number.format(point.item.durationMs) }} ms</title>
+                </circle>
+                <text
+                  class="chart-time-label"
+                  :x="point.x"
+                  y="195"
+                  :text-anchor="point.labelAnchor"
+                >
+                  {{ formatBeijingChartTime(point.item.createdAt) }}
+                </text>
+              </g>
+              <text class="chart-axis-title" x="405" y="221" text-anchor="middle">调用时间</text>
+              <text class="chart-axis-title" x="13" y="95" text-anchor="middle" transform="rotate(-90 13 95)">响应耗时（ms）</text>
+            </svg>
+            <div v-if="!chartPointItems.length && !loading" class="chart-empty">暂无近期调用数据</div>
           </div>
         </article>
         <article class="panel health-card">

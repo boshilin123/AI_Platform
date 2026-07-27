@@ -1,4 +1,4 @@
-# BLUEDOT AI 能力中台接口文档
+# BLUEDOT AI Agent 中台接口文档
 
 > 文档版本：0.1.0
 >
@@ -12,7 +12,7 @@
 
 | 项目 | 说明 |
 | --- | --- |
-| 服务名称 | BLUEDOT AI 能力中台 |
+| 服务名称 | BLUEDOT AI Agent 中台 |
 | API 基础路径 | `/api/v1` |
 | 默认本地地址 | `http://127.0.0.1:8080` |
 | 部署统一入口 | `http://<server-ip>:18554` |
@@ -123,7 +123,7 @@ GET /api/v1/system/health
   "requestId": "ai-0123456789abcdef",
   "data": {
     "status": "ok",
-    "service": "BLUEDOT AI 能力中台",
+    "service": "BLUEDOT AI Agent 中台",
     "environment": "development",
     "database": "ok",
     "llmMode": "mock"
@@ -149,7 +149,7 @@ GET /api/v1/system/health
 GET /api/v1/dashboard/overview
 ```
 
-统计范围为服务器 UTC 当日 00:00 至当前时间，最近调用返回最新 5 条业务审计。
+统计范围为北京时间当日 00:00 至当前时间，最近调用返回最新 5 条业务审计。
 
 成功响应：
 
@@ -501,7 +501,7 @@ GET /api/v1/audits?page=1&pageSize=20&status=success&capabilityCode=recruitment.
 | `totalTokens` | integer | Token 总数 |
 | `durationMs` | integer | 业务请求耗时，单位毫秒 |
 | `promptVersion` | string | Prompt 版本 |
-| `createdAt` | datetime | 创建时间，ISO 8601 |
+| `createdAt` | datetime | 创建时间，ISO 8601 UTC，响应始终包含 `Z` 或 `+00:00` 时区标记 |
 
 当前列表接口不返回完整请求、内容哈希、提示词、模型响应或上游尝试明细。
 

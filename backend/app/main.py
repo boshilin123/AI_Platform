@@ -85,7 +85,7 @@ async def handle_unexpected_error(_: Request, error: Exception) -> JSONResponse:
         request_id=get_request_id(),
         error=ErrorDetail(
             code=ErrorCode.INTERNAL_ERROR.value,
-            message="AI 能力中台内部错误",
+            message="AI Agent 中台内部错误",
             retryable=False,
         ),
     )

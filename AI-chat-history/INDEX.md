@@ -1,6 +1,6 @@
-# BLUEDOT AI 能力中台历史索引
+# BLUEDOT AI Agent 中台历史索引
 
-> 更新时间：2026-07-24
+> 更新时间：2026-07-27
 
 ## 默认读取规则
 
@@ -36,3 +36,6 @@ YYYY-MM-DD-topic-summary.md
 - `2026-07-24-container-registry-mirror-summary.md`：Docker Hub 超时、DaoCloud 镜像代理切换和构建验证。
 - `2026-07-24-production-compose-deployment-summary.md`：MySQL 8.4 认证依赖修复、Alembic 迁移和三容器部署成功。
 - `2026-07-24-frontend-prototype-alignment-summary.md`：四个前端页面按原型 V2 对齐、公司 Logo 替换与构建验证。
+- `2026-07-27-recruitment-ui-interaction-fixes-summary.md`：品牌更名、复制兼容、招聘步骤结果保留和岗位模板。
+- `2026-07-27-navigation-pagination-dashboard-summary.md`：招聘任务跨路由保活、审计分页与筛选语义、工作台耗时图坐标轴。
+- `2026-07-27-beijing-time-settings-status-summary.md`：MySQL UTC 时区标记、北京时间展示和只读运行配置页面调整。

@@ -65,10 +65,12 @@ def test_recruitment_flow_creates_audit_records(client):
     assert audits.status_code == 200
     assert audits.json()["data"]["total"] >= 3
     assert audits.json()["data"]["items"][0]["callerSystem"] == "pytest"
+    assert audits.json()["data"]["items"][0]["createdAt"].endswith(("Z", "+00:00"))
 
     dashboard = client.get("/api/v1/dashboard/overview")
     assert dashboard.status_code == 200
     assert dashboard.json()["data"]["stats"]["businessRequests"] >= 3
+    assert dashboard.json()["data"]["recentRequests"][0]["createdAt"].endswith(("Z", "+00:00"))
 
 
 def test_validation_error_uses_standard_envelope(client):

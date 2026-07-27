@@ -1,10 +1,13 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.audits.repository import AuditRepository
 from app.modules.audits.service import AuditService
 from app.modules.dashboard.schemas import DashboardData, DashboardStats
+
+
+BEIJING_TIMEZONE = timezone(timedelta(hours=8))
 
 
 class DashboardService:
@@ -14,7 +17,11 @@ class DashboardService:
 
     async def overview(self, session: AsyncSession) -> DashboardData:
         now = datetime.now(timezone.utc)
-        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today = (
+            now.astimezone(BEIJING_TIMEZONE)
+            .replace(hour=0, minute=0, second=0, microsecond=0)
+            .astimezone(timezone.utc)
+        )
         summary = await self.repository.summary_since(session, today)
         rows, _ = await self.repository.list(session, page=1, page_size=5)
         request_count = int(summary["request_count"])

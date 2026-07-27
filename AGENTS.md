@@ -1,4 +1,4 @@
-# BLUEDOT AI 能力中台 AGENTS.md
+# BLUEDOT AI Agent 中台 AGENTS.md
 
 本文件是项目级 AI 协作规范。适用于分析、开发、审查、测试、文档和发布工作。
 

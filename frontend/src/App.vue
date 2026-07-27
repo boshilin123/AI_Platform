@@ -4,7 +4,7 @@ import { useRoute } from "vue-router";
 import companyLogo from "./assets/company-logo.png";
 
 const route = useRoute();
-const pageTitle = computed(() => String(route.meta.title ?? "AI 能力中台"));
+const pageTitle = computed(() => String(route.meta.title ?? "AI Agent 中台"));
 
 const navigation = [
   { to: "/", label: "工作台", group: "工作空间", icon: "home" },
@@ -23,7 +23,7 @@ const groups = ["工作空间", "管理"] as const;
         <div class="brand-logo">
           <img :src="companyLogo" alt="公司 Logo" />
         </div>
-        <strong>AI 能力中台</strong>
+        <strong>AI Agent 中台</strong>
       </div>
 
       <nav class="navigation" aria-label="主导航">
@@ -73,7 +73,11 @@ const groups = ["工作空间", "管理"] as const;
         </div>
       </header>
       <main class="page-content">
-        <RouterView />
+        <RouterView v-slot="{ Component }">
+          <KeepAlive include="RecruitmentView">
+            <component :is="Component" />
+          </KeepAlive>
+        </RouterView>
       </main>
     </section>
   </div>

@@ -16,7 +16,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "BLUEDOT AI 能力中台"
+    app_name: str = "BLUEDOT AI Agent 中台"
     app_env: str = "development"
     app_debug: bool = False
     app_host: str = "0.0.0.0"

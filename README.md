@@ -1,4 +1,4 @@
-# BLUEDOT AI 能力中台
+# BLUEDOT AI Agent 中台
 
 基于现有 OpenAI 兼容 API 建设的公司内部统一 AI 服务。平台负责保护上游 API Key，统一处理模型调用、错误与有限重试、Token 用量和审计日志，并以招聘助手作为首个业务场景。
 

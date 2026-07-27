@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import AiRequestAudit
 from app.modules.audits.repository import AuditRepository, AuditWrite
 from app.modules.audits.schemas import AuditItem, AuditListData
+
+
+def as_utc(value: datetime) -> datetime:
+    """Restore UTC information that MySQL DATETIME does not preserve."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 class AuditService:
@@ -82,7 +90,7 @@ class AuditService:
                     row.retry_count,
                     row.total_tokens,
                     row.duration_ms,
-                    row.created_at.isoformat(),
+                    as_utc(row.created_at).isoformat(),
                 ]
             )
         return output.getvalue()
@@ -107,5 +115,5 @@ class AuditService:
             total_tokens=row.total_tokens,
             duration_ms=row.duration_ms,
             prompt_version=row.prompt_version,
-            created_at=row.created_at,
+            created_at=as_utc(row.created_at),
         )
