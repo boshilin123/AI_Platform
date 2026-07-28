@@ -39,3 +39,5 @@ YYYY-MM-DD-topic-summary.md
 - `2026-07-27-recruitment-ui-interaction-fixes-summary.md`：品牌更名、复制兼容、招聘步骤结果保留和岗位模板。
 - `2026-07-27-navigation-pagination-dashboard-summary.md`：招聘任务跨路由保活、审计分页与筛选语义、工作台耗时图坐标轴。
 - `2026-07-27-beijing-time-settings-status-summary.md`：MySQL UTC 时区标记、北京时间展示和只读运行配置页面调整。
+- `2026-07-27-usage-trend-model-configuration-review-summary.md`：近 7 天 API 调用次数趋势、GPTSAPI 模型发现和安全配置写入边界。
+- `2026-07-27-admin-runtime-llm-settings-summary.md`：管理员短期会话、受控 Base URL、动态模型、运行时持久化和管理操作审计。

@@ -1,6 +1,7 @@
 import type { ApiError, ApiSuccess } from "../types/api";
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const adminTokenKey = "bluedot-admin-session";
 
 export class ApiClientError extends Error {
   constructor(
@@ -46,6 +47,32 @@ export async function apiRequest<T>(
     );
   }
   return payload;
+}
+
+export function readAdminToken(): string {
+  return sessionStorage.getItem(adminTokenKey) ?? "";
+}
+
+export function saveAdminToken(token: string): void {
+  sessionStorage.setItem(adminTokenKey, token);
+}
+
+export function clearAdminToken(): void {
+  sessionStorage.removeItem(adminTokenKey);
+}
+
+export async function adminApiRequest<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<ApiSuccess<T>> {
+  const token = readAdminToken();
+  return apiRequest<T>(path, {
+    ...init,
+    headers: {
+      ...(init.headers ?? {}),
+      Authorization: `Bearer ${token}`,
+    },
+  });
 }
 
 export async function downloadAuditCsv(query: string): Promise<void> {

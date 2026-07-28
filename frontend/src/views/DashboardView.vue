@@ -2,32 +2,38 @@
 import { computed, onMounted, ref } from "vue";
 import { apiRequest } from "../api/client";
 import ErrorNotice from "../components/ErrorNotice.vue";
-import type { DashboardData, HealthData } from "../types/api";
-import { formatBeijingChartTime } from "../utils/datetime";
+import type { DashboardData, HealthData, SettingsData } from "../types/api";
 
 const dashboard = ref<DashboardData | null>(null);
 const health = ref<HealthData | null>(null);
+const runtimeSettings = ref<SettingsData | null>(null);
 const loading = ref(true);
 const error = ref("");
 const number = new Intl.NumberFormat("zh-CN");
 const CHART_LEFT = 68;
 const CHART_RIGHT = 742;
-const CHART_TOP = 18;
-const CHART_BOTTOM = 172;
+const CHART_TOP = 20;
+const CHART_BOTTOM = 205;
 
 const averageDuration = computed(() => {
   const milliseconds = dashboard.value?.stats.averageDurationMs ?? 0;
   return milliseconds >= 1000 ? `${(milliseconds / 1000).toFixed(1)}s` : `${milliseconds}ms`;
 });
 
-const chartItems = computed(() => [...(dashboard.value?.recentRequests ?? [])].reverse());
-const chartMaximum = computed(() => Math.max(...chartItems.value.map((item) => item.durationMs), 1));
+const chartItems = computed(() => dashboard.value?.usageTrend ?? []);
+const usageTotal = computed(() =>
+  chartItems.value.reduce((total, item) => total + item.requestCount, 0),
+);
+const chartMaximum = computed(() => {
+  const maximum = Math.max(...chartItems.value.map((item) => item.requestCount), 0);
+  return Math.max(4, Math.ceil(maximum / 4) * 4);
+});
 const chartPointItems = computed(() => {
   const items = chartItems.value;
   return items.map((item, index) => {
     const ratio = items.length === 1 ? 0.5 : index / (items.length - 1);
     const x = CHART_LEFT + ratio * (CHART_RIGHT - CHART_LEFT);
-    const y = CHART_BOTTOM - (item.durationMs / chartMaximum.value) * (CHART_BOTTOM - CHART_TOP);
+    const y = CHART_BOTTOM - (item.requestCount / chartMaximum.value) * (CHART_BOTTOM - CHART_TOP);
     return {
       item,
       x,
@@ -37,21 +43,33 @@ const chartPointItems = computed(() => {
   });
 });
 const chartPoints = computed(() => chartPointItems.value.map((point) => `${point.x},${point.y}`).join(" "));
-const chartYTicks = computed(() => [1, 0.5, 0].map((ratio) => ({
+const chartAreaPoints = computed(() =>
+  chartPointItems.value.length
+    ? `${CHART_LEFT},${CHART_BOTTOM} ${chartPoints.value} ${CHART_RIGHT},${CHART_BOTTOM}`
+    : "",
+);
+const chartYTicks = computed(() => [1, 0.75, 0.5, 0.25, 0].map((ratio) => ({
   value: Math.round(chartMaximum.value * ratio),
   y: CHART_BOTTOM - ratio * (CHART_BOTTOM - CHART_TOP),
 })));
+
+function formatTrendDate(value: string): string {
+  const [, month, day] = value.split("-");
+  return `${Number(month)}/${Number(day)}`;
+}
 
 async function load(): Promise<void> {
   loading.value = true;
   error.value = "";
   try {
-    const [overviewResponse, healthResponse] = await Promise.all([
+    const [overviewResponse, healthResponse, settingsResponse] = await Promise.all([
       apiRequest<DashboardData>("/api/v1/dashboard/overview"),
       apiRequest<HealthData>("/api/v1/system/health"),
+      apiRequest<SettingsData>("/api/v1/settings"),
     ]);
     dashboard.value = overviewResponse.data;
     health.value = healthResponse.data;
+    runtimeSettings.value = settingsResponse.data;
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "工作台数据加载失败";
   } finally {
@@ -147,43 +165,47 @@ onMounted(load);
 
     <section>
       <div class="section-title-row">
-        <h2>运行概览</h2>
+        <h2>用量趋势</h2>
         <RouterLink class="button" to="/audits">查看调用审计</RouterLink>
       </div>
       <div class="overview-grid">
         <article class="panel chart-card">
           <div class="panel-heading">
-            <div><strong>近期响应耗时</strong><div class="muted">根据最近业务调用动态展示</div></div>
-            <button class="button" type="button" :disabled="loading" @click="load">{{ loading ? "刷新中" : "刷新" }}</button>
+            <div><strong>API 调用次数</strong><div class="muted">按北京时间统计近 7 天业务请求</div></div>
+            <div class="usage-chart-summary">
+              <span><strong>{{ number.format(usageTotal) }}</strong><small>7 日累计</small></span>
+              <button class="button" type="button" :disabled="loading" @click="load">{{ loading ? "刷新中" : "刷新" }}</button>
+            </div>
           </div>
           <div class="chart-placeholder">
-            <svg viewBox="0 0 760 226" role="img" aria-labelledby="duration-chart-title duration-chart-description">
-              <title id="duration-chart-title">近期业务请求响应耗时</title>
-              <desc id="duration-chart-description">横轴为调用时间，纵轴为业务请求响应耗时，单位毫秒。</desc>
+            <svg viewBox="0 0 760 266" role="img" aria-labelledby="usage-chart-title usage-chart-description">
+              <title id="usage-chart-title">近 7 天 API 调用次数</title>
+              <desc id="usage-chart-description">横轴为北京时间日期，纵轴为当天业务请求次数。</desc>
               <g v-for="tick in chartYTicks" :key="tick.y" class="chart-grid-line">
                 <line :x1="CHART_LEFT" :x2="CHART_RIGHT" :y1="tick.y" :y2="tick.y" />
                 <text :x="CHART_LEFT - 10" :y="tick.y + 4" text-anchor="end">{{ number.format(tick.value) }}</text>
               </g>
               <line class="chart-axis" :x1="CHART_LEFT" :x2="CHART_LEFT" :y1="CHART_TOP" :y2="CHART_BOTTOM" />
               <line class="chart-axis" :x1="CHART_LEFT" :x2="CHART_RIGHT" :y1="CHART_BOTTOM" :y2="CHART_BOTTOM" />
+              <polygon v-if="chartPointItems.length > 1" class="chart-area" :points="chartAreaPoints" />
               <polyline v-if="chartPointItems.length > 1" class="chart-line" :points="chartPoints" />
-              <g v-for="point in chartPointItems" :key="point.item.requestId">
+              <g v-for="point in chartPointItems" :key="point.item.date">
                 <circle class="chart-point" :cx="point.x" :cy="point.y" r="4">
-                  <title>{{ formatBeijingChartTime(point.item.createdAt) }}，{{ number.format(point.item.durationMs) }} ms</title>
+                  <title>{{ point.item.date }}，{{ number.format(point.item.requestCount) }} 次</title>
                 </circle>
                 <text
-                  class="chart-time-label"
+                  class="chart-date-label"
                   :x="point.x"
-                  y="195"
+                  y="233"
                   :text-anchor="point.labelAnchor"
                 >
-                  {{ formatBeijingChartTime(point.item.createdAt) }}
+                  {{ formatTrendDate(point.item.date) }}
                 </text>
               </g>
-              <text class="chart-axis-title" x="405" y="221" text-anchor="middle">调用时间</text>
-              <text class="chart-axis-title" x="13" y="95" text-anchor="middle" transform="rotate(-90 13 95)">响应耗时（ms）</text>
+              <text class="chart-axis-title" x="405" y="260" text-anchor="middle">日期</text>
+              <text class="chart-axis-title" x="13" y="113" text-anchor="middle" transform="rotate(-90 13 113)">调用次数</text>
             </svg>
-            <div v-if="!chartPointItems.length && !loading" class="chart-empty">暂无近期调用数据</div>
+            <div v-if="usageTotal === 0 && !loading" class="chart-empty">近 7 天暂无调用数据</div>
           </div>
         </article>
         <article class="panel health-card">
@@ -191,7 +213,16 @@ onMounted(load);
           <div class="health-list">
             <div class="health-item"><span class="health-badge">API</span><span class="health-copy"><strong>中台服务</strong><small>FastAPI 接口服务</small></span><span class="health-state">正常</span></div>
             <div class="health-item"><span class="health-badge">DB</span><span class="health-copy"><strong>审计数据库</strong><small>MySQL 数据持久化</small></span><span class="health-state">{{ health?.database === "ok" ? "正常" : "检查中" }}</span></div>
-            <div class="health-item"><span class="health-badge">AI</span><span class="health-copy"><strong>模型调用</strong><small>{{ health?.llmMode === "mock" ? "模拟模式" : "上游模式" }}</small></span><span class="health-state">可用</span></div>
+            <div class="health-item">
+              <span class="health-badge">AI</span>
+              <span class="health-copy">
+                <strong>当前模型</strong>
+                <small>{{ runtimeSettings?.model ?? "读取中" }} · {{ health?.llmMode === "mock" ? "模拟模式" : "上游模式" }}</small>
+              </span>
+              <span class="health-state">
+                {{ runtimeSettings?.mockMode || runtimeSettings?.apiKeyConfigured ? "已配置" : "待配置" }}
+              </span>
+            </div>
           </div>
         </article>
       </div>

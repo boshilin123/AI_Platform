@@ -7,6 +7,8 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test_ai_platform.db
 os.environ.setdefault("AUTO_CREATE_TABLES", "true")
 os.environ.setdefault("AI_MOCK_MODE", "true")
 os.environ.setdefault("AI_RETRY_DELAYS_SECONDS", "0,0")
+os.environ.setdefault("ADMIN_USERNAME", "test-admin")
+os.environ.setdefault("ADMIN_PASSWORD", "test-admin-password")
 
 import pytest
 from fastapi.testclient import TestClient

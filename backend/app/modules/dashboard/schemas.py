@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from app.core.schemas import CamelModel
 from app.modules.audits.schemas import AuditItem
@@ -13,7 +13,13 @@ class DashboardStats(CamelModel):
     average_duration_ms: int
 
 
+class UsageTrendPoint(CamelModel):
+    date: date
+    request_count: int
+
+
 class DashboardData(CamelModel):
     stats: DashboardStats
+    usage_trend: list[UsageTrendPoint]
     recent_requests: list[AuditItem]
     generated_at: datetime

@@ -71,3 +71,39 @@ class AiUpstreamAttempt(Base):
     audit: Mapped[AiRequestAudit] = relationship(back_populates="attempts")
 
     __table_args__ = (Index("ix_ai_upstream_attempt_request_no", "request_id", "attempt_no"),)
+
+
+class RuntimeLlmConfiguration(Base):
+    __tablename__ = "runtime_llm_configuration"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    base_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    model: Mapped[str] = mapped_column(String(128), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(64), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class AdminOperationAudit(Base):
+    __tablename__ = "admin_operation_audit"
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(96), nullable=False, index=True)
+    actor: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    http_status: Mapped[int] = mapped_column(Integer, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    old_base_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    new_base_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    old_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    new_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now, index=True
+    )
+
+    __table_args__ = (
+        Index("ix_admin_operation_audit_created_action", "created_at", "action"),
+    )

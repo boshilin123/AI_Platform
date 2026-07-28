@@ -58,7 +58,11 @@ docker ps --filter label=com.docker.compose.project=bluedot-ai-platform
 生产环境必须覆盖：
 
 - `GPTSAPI_API_KEY`
+- `GPTSAPI_ALLOWED_HOSTS`，默认只允许 `api.gptsapi.net`
 - `INTERNAL_API_TOKEN`
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+- `ADMIN_SESSION_TTL_MINUTES`，默认 480 分钟
 - `MYSQL_ROOT_PASSWORD`
 - `MYSQL_PASSWORD`
 - `APP_CORS_ORIGINS`
@@ -71,7 +75,8 @@ docker ps --filter label=com.docker.compose.project=bluedot-ai-platform
 cd /opt/software/AI_Platform
 cp deploy/.env.example deploy/.env
 chmod 600 deploy/.env
-# 使用受控编辑器填写 deploy/.env 中的密码、内部 Token 和 GPTSAPI_API_KEY
+# 使用受控编辑器填写 deploy/.env 中的数据库密码、管理员凭据、
+# 内部 Token 和 GPTSAPI_API_KEY
 
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml config
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml build --pull
@@ -80,6 +85,8 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
 ```
 
 `config` 输出会展开环境变量，其中可能包含敏感值；只在受控终端执行，不要将输出粘贴到工单或聊天记录。`build --pull` 负责构建后端与前端镜像，`up -d` 启动 MySQL、执行 Alembic 迁移，然后启动 API 和 Web。首次启动会创建带项目名前缀的 MySQL 数据卷。
+
+管理员账号和密码只进入 API 容器环境，不写入镜像或数据库。管理页面保存的 Base URL 和模型写入 MySQL；后续更新容器不会清除该配置。若要允许其他 GPTSAPI API 主机，必须先在 `GPTSAPI_ALLOWED_HOSTS` 中以逗号分隔添加精确域名，再重建 API 容器。
 
 后端镜像包含 MySQL 8.4 `caching_sha2_password` 认证所需的 `cryptography` 运行依赖。构建使用 BuildKit pip 缓存；第一次下载仍可能较慢，后续重建可以复用已下载的 wheel。
 

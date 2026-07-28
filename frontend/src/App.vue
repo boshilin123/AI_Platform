@@ -1,10 +1,45 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
+import { apiRequest } from "./api/client";
 import companyLogo from "./assets/company-logo.png";
+import type { SettingsData } from "./types/api";
 
 const route = useRoute();
 const pageTitle = computed(() => String(route.meta.title ?? "AI Agent 中台"));
+const runtimeSettings = ref<SettingsData | null>(null);
+const runtimeStatus = ref<"loading" | "ready" | "unavailable">("loading");
+
+const runtimeStatusLabel = computed(() => {
+  if (runtimeStatus.value === "loading") return "正在读取 AI 配置";
+  if (runtimeStatus.value === "unavailable") return "AI 服务待检查";
+  if (runtimeSettings.value?.mockMode) return `${runtimeSettings.value.model} 模拟模式`;
+  return `${runtimeSettings.value?.model ?? "AI 模型"} 已配置`;
+});
+
+const runtimeStatusTitle = computed(() => {
+  if (runtimeStatus.value === "ready") {
+    return "表示当前模型配置已加载；模型真实可调用性请通过招聘调用和调用审计确认。";
+  }
+  return "当前无法确认 AI 运行配置，请检查 API 服务或服务端 API Key。";
+});
+
+async function loadRuntimeStatus(): Promise<void> {
+  try {
+    const response = await apiRequest<SettingsData>("/api/v1/settings");
+    runtimeSettings.value = response.data;
+    runtimeStatus.value = response.data.mockMode || response.data.apiKeyConfigured
+      ? "ready"
+      : "unavailable";
+  } catch {
+    runtimeSettings.value = null;
+    runtimeStatus.value = "unavailable";
+  }
+}
+
+function handleRuntimeConfigurationUpdate(): void {
+  void loadRuntimeStatus();
+}
 
 const navigation = [
   { to: "/", label: "工作台", group: "工作空间", icon: "home" },
@@ -14,6 +49,15 @@ const navigation = [
 ] as const;
 
 const groups = ["工作空间", "管理"] as const;
+
+onMounted(() => {
+  void loadRuntimeStatus();
+  window.addEventListener("runtime-llm-config-updated", handleRuntimeConfigurationUpdate);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("runtime-llm-config-updated", handleRuntimeConfigurationUpdate);
+});
 </script>
 
 <template>
@@ -64,12 +108,14 @@ const groups = ["工作空间", "管理"] as const;
       <header class="topbar">
         <h1>{{ pageTitle }}</h1>
         <div class="top-actions">
-          <div class="service-pill"><span class="status-dot"></span>GPT 服务正常</div>
-          <button class="icon-button" type="button" title="通知" aria-label="通知">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 8h18c0-1-3-1-3-8" /><path d="M10 21h4" />
-            </svg>
-          </button>
+          <div
+            class="service-pill"
+            :class="{ unavailable: runtimeStatus === 'unavailable' }"
+            :title="runtimeStatusTitle"
+          >
+            <span class="status-dot"></span>
+            <span class="service-label">{{ runtimeStatusLabel }}</span>
+          </div>
         </div>
       </header>
       <main class="page-content">

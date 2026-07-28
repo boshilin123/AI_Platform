@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     gptsapi_base_url: str = "https://api.gptsapi.net/v1"
     gptsapi_api_key: str = ""
     gptsapi_model: str = "gpt-5.6-luna"
+    gptsapi_allowed_hosts: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["api.gptsapi.net"]
+    )
     ai_connect_timeout_seconds: float = 10
     ai_read_timeout_seconds: float = 120
     ai_stream_idle_timeout_seconds: float = 30
@@ -41,6 +44,9 @@ class Settings(BaseSettings):
     )
 
     internal_api_token: str = ""
+    admin_username: str = ""
+    admin_password: SecretStr = SecretStr("")
+    admin_session_ttl_minutes: int = Field(default=480, ge=15, le=1440)
     audit_retention_days: int = Field(default=90, ge=1, le=3650)
     recruitment_max_upload_mb: int = Field(default=10, ge=1, le=50)
     recruitment_max_pdf_pages: int = Field(default=20, ge=1, le=100)
@@ -61,9 +67,20 @@ class Settings(BaseSettings):
             return [float(item.strip()) for item in value.split(",") if item.strip()]
         return value
 
+    @field_validator("gptsapi_allowed_hosts", mode="before")
+    @classmethod
+    def parse_allowed_hosts(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [item.strip().lower() for item in value.split(",") if item.strip()]
+        return value
+
     @property
     def api_key_configured(self) -> bool:
         return bool(self.gptsapi_api_key.strip())
+
+    @property
+    def admin_auth_configured(self) -> bool:
+        return bool(self.admin_username.strip() and self.admin_password.get_secret_value())
 
     @property
     def is_sqlite(self) -> bool:

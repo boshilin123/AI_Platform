@@ -2,7 +2,7 @@
 
 > 文档版本：0.1.0
 >
-> 最后更新：2026-07-24
+> 最后更新：2026-07-27
 >
 > 维护原则：接口路由、请求字段、响应字段、状态码或鉴权方式发生变化时，必须在同一次修改中更新本文档。当前代码是最终事实来源。
 
@@ -35,7 +35,12 @@
 | 招聘助手 | POST | `/api/v1/recruitment/interview-kits/generate` | 是 | 已实现 |
 | 调用审计 | GET | `/api/v1/audits` | 是 | 已实现 |
 | 调用审计 | GET | `/api/v1/audits/export` | 是 | 已实现 |
+| 管理员认证 | POST | `/api/v1/admin/login` | 是 | 已实现 |
+| 管理员认证 | GET/DELETE | `/api/v1/admin/session` | 是 + 管理员 | 已实现 |
 | 基础配置 | GET | `/api/v1/settings` | 是 | 已实现 |
+| 基础配置 | GET | `/api/v1/settings/models` | 是 + 管理员 | 已实现 |
+| 基础配置 | PUT | `/api/v1/settings/llm` | 是 + 管理员 | 已实现 |
+| 基础配置 | GET | `/api/v1/settings/audits` | 是 + 管理员 | 已实现 |
 
 ## 2. 通用约定
 
@@ -47,6 +52,7 @@
 | `X-Request-ID` | 否 | 全部接口 | 调用方请求编号，最长使用前 96 个字符；未提供时由服务生成 |
 | `X-Internal-Token` | 视环境而定 | 除健康检查外 | 服务端配置后必填；部署管理端由 Nginx 注入，其他内部调用方自行传递 |
 | `X-Caller-System` | 否 | 招聘助手 | 调用方系统标识，最长使用前 64 个字符；默认 `ai-platform-web` |
+| `Authorization: Bearer <admin-session>` | 管理写操作必填 | 管理员会话、模型发现、配置保存和配置审计 | 通过管理员登录获取的短期会话令牌 |
 
 所有响应都包含 `X-Request-ID` 响应头。
 
@@ -84,7 +90,7 @@
 | ---: | --- |
 | 200 | 请求成功 |
 | 400 | 请求被上游拒绝或业务请求不合法 |
-| 401 | 内部调用鉴权失败 |
+| 401 | 内部调用鉴权失败，或管理员会话缺失/失效 |
 | 422 | FastAPI/Pydantic 请求参数校验失败，使用统一错误响应 |
 | 413 | 简历文件、PDF 页数或 DOCX 解压内容超过限制 |
 | 415 | 简历文件类型或 MIME 类型不受支持 |
@@ -149,7 +155,7 @@ GET /api/v1/system/health
 GET /api/v1/dashboard/overview
 ```
 
-统计范围为北京时间当日 00:00 至当前时间，最近调用返回最新 5 条业务审计。
+今日指标的统计范围为北京时间当日 00:00 至当前时间；用量趋势返回按北京时间自然日汇总的近 7 天业务请求次数；最近调用返回最新 5 条业务审计。
 
 成功响应：
 
@@ -166,6 +172,16 @@ GET /api/v1/dashboard/overview
       "retryCount": 0,
       "averageDurationMs": 3200
     },
+    "usageTrend": [
+      {
+        "date": "2026-07-18",
+        "requestCount": 0
+      },
+      {
+        "date": "2026-07-24",
+        "requestCount": 3
+      }
+    ],
     "recentRequests": [],
     "generatedAt": "2026-07-24T08:00:00Z"
   }
@@ -182,6 +198,9 @@ GET /api/v1/dashboard/overview
 | `successRate` | number | 业务请求成功率，范围 0-100 |
 | `retryCount` | integer | 传输重试总数，不包含格式修复 |
 | `averageDurationMs` | integer | 业务请求平均耗时，单位毫秒 |
+| `usageTrend` | UsageTrendPoint[] | 按北京时间自然日汇总的近 7 天业务请求次数，包含无调用日期 |
+| `usageTrend[].date` | date | 北京时间日期，格式 `YYYY-MM-DD` |
+| `usageTrend[].requestCount` | integer | 当天业务请求次数 |
 | `recentRequests` | AuditItem[] | 最新 5 条业务审计，字段见 6.1 |
 | `generatedAt` | datetime | 统计生成时间，ISO 8601 |
 
@@ -551,7 +570,7 @@ CSV 不包含 API Key、内部 Token、请求原文、完整提示词或模型�
 GET /api/v1/settings
 ```
 
-该接口只读，不提供保存或修改配置的能力。
+该接口可由管理页面只读调用。API Key 仅返回是否已配置；Base URL 和模型返回当前实际生效值。数据库运行配置优先于环境默认值。
 
 成功响应：
 
@@ -574,7 +593,11 @@ GET /api/v1/settings
       2
     ],
     "auditRetentionDays": 90,
-    "internalAuthEnabled": false
+    "internalAuthEnabled": true,
+    "adminAuthConfigured": true,
+    "configurationSource": "database",
+    "updatedBy": "platform-admin",
+    "updatedAt": "2026-07-27T08:00:00Z"
   }
 }
 ```
@@ -595,8 +618,83 @@ GET /api/v1/settings
 | `retryDelaysSeconds` | number[] | 默认重试等待时间 |
 | `auditRetentionDays` | integer | 配置的审计保留天数 |
 | `internalAuthEnabled` | boolean | 是否启用内部令牌校验 |
+| `adminAuthConfigured` | boolean | 服务端是否已配置管理员账号和密码 |
+| `configurationSource` | string | `environment` 或 `database` |
+| `updatedBy` | string/null | 最近通过管理页面修改配置的管理员 |
+| `updatedAt` | datetime/null | 最近配置修改时间，UTC |
 
 接口永远不会返回真实 API Key、掩码 Key 或内部 Token。
+
+### 7.2 管理员登录
+
+```http
+POST /api/v1/admin/login
+Content-Type: application/json
+```
+
+请求：
+
+```json
+{
+  "username": "platform-admin",
+  "password": "由部署环境配置的密码"
+}
+```
+
+成功后返回 `username`、`accessToken` 和 `expiresAt`。密码不持久化到浏览器；管理端只在 `sessionStorage` 保存短期会话令牌。API 进程重启、主动退出或会话过期后需要重新登录。
+
+```http
+GET /api/v1/admin/session
+Authorization: Bearer <admin-session>
+
+DELETE /api/v1/admin/session
+Authorization: Bearer <admin-session>
+```
+
+### 7.3 获取上游可用模型
+
+```http
+GET /api/v1/settings/models?baseUrl=https%3A%2F%2Fapi.gptsapi.net%2Fv1
+Authorization: Bearer <admin-session>
+```
+
+后端使用服务端 API Key 请求受控 Base URL 的 `/models`，只向前端返回模型 ID 列表。Base URL 必须满足：
+
+- 使用 HTTPS。
+- 端口为 443 或省略。
+- 主机名精确匹配 `GPTSAPI_ALLOWED_HOSTS`。
+- 路径以 `/v1` 结尾。
+- 不包含用户名、密码、查询参数、片段或路径回退。
+
+模型发现的成功或失败都会写入 `admin_operation_audit`，但不计入招聘业务请求数量。
+
+### 7.4 保存运行时 LLM 配置
+
+```http
+PUT /api/v1/settings/llm
+Authorization: Bearer <admin-session>
+Content-Type: application/json
+```
+
+请求：
+
+```json
+{
+  "baseUrl": "https://api.gptsapi.net/v1",
+  "model": "gpt-5.6-luna"
+}
+```
+
+保存前后端会重新获取模型列表，并确认所选模型当前可用。成功后 Base URL 和模型写入 MySQL 并立即用于后续 AI 请求，无需重启 API。API Key、超时、重试和鉴权配置仍只允许通过服务端环境变量维护。
+
+### 7.5 查询管理操作审计
+
+```http
+GET /api/v1/settings/audits?page=1&pageSize=10
+Authorization: Bearer <admin-session>
+```
+
+返回模型发现和配置保存操作，包含操作者、Request ID、状态、错误码、耗时、配置前后值和时间。审计记录不包含 API Key、管理员密码、管理员会话令牌或模型列表响应全文。
 
 ## 8. 能力编号
 

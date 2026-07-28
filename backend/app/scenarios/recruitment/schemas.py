@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.core.schemas import CamelModel
 
@@ -23,6 +23,17 @@ class ResumeParseResult(CamelModel):
     graduation_time: str | None = None
     skills: list[str] = Field(default_factory=list)
     projects: list[ProjectExperience] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def require_meaningful_content(self) -> "ResumeParseResult":
+        scalar_values = (self.name, self.school, self.major, self.graduation_time)
+        if (
+            any(value and value.strip() for value in scalar_values)
+            or self.skills
+            or self.projects
+        ):
+            return self
+        raise ValueError("resume parse result must contain at least one extracted field")
 
 
 class ScreeningRequest(CamelModel):

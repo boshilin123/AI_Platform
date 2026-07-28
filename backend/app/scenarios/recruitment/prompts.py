@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.infrastructure.llm.models import LlmMessage
 
-PROMPT_VERSION = "v1.0"
+PROMPT_VERSION = "v1.1"
 
 
 def resume_parse_messages(resume_text: str) -> list[LlmMessage]:
@@ -13,6 +13,7 @@ def resume_parse_messages(resume_text: str) -> list[LlmMessage]:
                 "你是企业招聘助手。只从简历中提取明确出现的信息，不猜测缺失内容。"
                 "输出一个 JSON 对象，字段为 name、school、major、graduationTime、skills、projects。"
                 "projects 中每项包含 name、summary、technologies、risks。缺失标量用 null，列表用空数组。"
+                "只要简历中存在可读的候选人信息，就不得把所有字段都返回为空。"
             ),
         ),
         LlmMessage(role="user", content=f"请结构化解析以下简历：\n\n{resume_text}"),

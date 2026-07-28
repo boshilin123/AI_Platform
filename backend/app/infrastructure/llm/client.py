@@ -15,6 +15,7 @@ from app.infrastructure.llm.error_mapper import MappedError, map_http_error
 from app.infrastructure.llm.models import (
     LlmRequest,
     LlmResponse,
+    LlmRuntimeConfig,
     TokenUsage,
     UpstreamAttempt,
 )
@@ -27,12 +28,20 @@ class LlmClient(Protocol):
 
 
 class OpenAICompatibleLlmClient:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        runtime_config: LlmRuntimeConfig | None = None,
+    ) -> None:
         self.settings = settings
+        self.runtime_config = runtime_config or LlmRuntimeConfig(
+            base_url=settings.gptsapi_base_url,
+            model=settings.gptsapi_model,
+        )
 
     @property
     def endpoint(self) -> str:
-        return f"{self.settings.gptsapi_base_url.rstrip('/')}/chat/completions"
+        return f"{self.runtime_config.base_url.rstrip('/')}/chat/completions"
 
     async def chat(self, request: LlmRequest, attempt_type: str = "primary") -> LlmResponse:
         if not self.settings.api_key_configured:

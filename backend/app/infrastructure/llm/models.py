@@ -19,6 +19,12 @@ class LlmRequest:
     response_format_json: bool = True
 
 
+@dataclass(frozen=True, slots=True)
+class LlmRuntimeConfig:
+    base_url: str
+    model: str
+
+
 @dataclass(slots=True)
 class TokenUsage:
     prompt_tokens: int = 0

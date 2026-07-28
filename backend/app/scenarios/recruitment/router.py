@@ -12,6 +12,8 @@ from app.core.security import get_caller_system, require_internal_token
 from app.db.session import get_db_session
 from app.infrastructure.llm.client import LlmClient
 from app.infrastructure.llm.dependencies import get_llm_client
+from app.infrastructure.llm.models import LlmRuntimeConfig
+from app.modules.settings.dependencies import get_runtime_llm_config
 from app.scenarios.recruitment.file_parser import ResumeFileParser
 from app.scenarios.recruitment.schemas import (
     InterviewKitRequest,
@@ -36,7 +38,7 @@ async def parse_resume(
     caller_system: str = Depends(get_caller_system),
     session: AsyncSession = Depends(get_db_session),
     llm_client: LlmClient = Depends(get_llm_client),
-    settings: Settings = Depends(get_settings),
+    runtime_config: LlmRuntimeConfig = Depends(get_runtime_llm_config),
 ) -> SuccessResponse[ResumeParseResult]:
     request_id = get_request_id()
     data = await RecruitmentService().parse_resume(
@@ -44,7 +46,7 @@ async def parse_resume(
         llm_client=llm_client,
         request_id=request_id,
         caller_system=caller_system,
-        model=settings.gptsapi_model,
+        model=runtime_config.model,
         payload=payload,
     )
     return SuccessResponse(request_id=request_id, data=data)
@@ -57,6 +59,7 @@ async def parse_resume_file(
     session: AsyncSession = Depends(get_db_session),
     llm_client: LlmClient = Depends(get_llm_client),
     settings: Settings = Depends(get_settings),
+    runtime_config: LlmRuntimeConfig = Depends(get_runtime_llm_config),
 ) -> SuccessResponse[ResumeParseResult]:
     request_id = get_request_id()
     try:
@@ -67,7 +70,7 @@ async def parse_resume_file(
             llm_client=llm_client,
             request_id=request_id,
             caller_system=caller_system,
-            model=settings.gptsapi_model,
+            model=runtime_config.model,
             upload=file,
         )
     finally:
@@ -81,7 +84,7 @@ async def evaluate_screening(
     caller_system: str = Depends(get_caller_system),
     session: AsyncSession = Depends(get_db_session),
     llm_client: LlmClient = Depends(get_llm_client),
-    settings: Settings = Depends(get_settings),
+    runtime_config: LlmRuntimeConfig = Depends(get_runtime_llm_config),
 ) -> SuccessResponse[ScreeningResult]:
     request_id = get_request_id()
     data = await RecruitmentService().evaluate_screening(
@@ -89,7 +92,7 @@ async def evaluate_screening(
         llm_client=llm_client,
         request_id=request_id,
         caller_system=caller_system,
-        model=settings.gptsapi_model,
+        model=runtime_config.model,
         payload=payload,
     )
     return SuccessResponse(request_id=request_id, data=data)
@@ -101,7 +104,7 @@ async def generate_interview_kit(
     caller_system: str = Depends(get_caller_system),
     session: AsyncSession = Depends(get_db_session),
     llm_client: LlmClient = Depends(get_llm_client),
-    settings: Settings = Depends(get_settings),
+    runtime_config: LlmRuntimeConfig = Depends(get_runtime_llm_config),
 ) -> SuccessResponse[InterviewKitResult]:
     request_id = get_request_id()
     data = await RecruitmentService().generate_interview_kit(
@@ -109,7 +112,7 @@ async def generate_interview_kit(
         llm_client=llm_client,
         request_id=request_id,
         caller_system=caller_system,
-        model=settings.gptsapi_model,
+        model=runtime_config.model,
         payload=payload,
     )
     return SuccessResponse(request_id=request_id, data=data)

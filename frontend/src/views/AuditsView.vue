@@ -108,7 +108,7 @@ onMounted(() => load());
           <tbody>
             <tr v-for="item in data.items" :key="item.requestId">
               <td><span class="mono">{{ item.requestId }}</span><small class="cell-note">{{ item.callerSystem }}</small></td>
-              <td>{{ item.capabilityCode }}<small class="cell-note">{{ item.model }}</small></td>
+              <td>{{ item.capabilityCode }}<small class="cell-note">调用模型：{{ item.model }}</small></td>
               <td><span class="badge neutral">{{ item.requestMode === "stream" ? "流式" : "非流式" }}</span></td>
               <td><span class="badge" :class="item.status === 'success' ? 'success' : 'danger'">{{ item.status === "success" ? "成功" : "失败" }}</span><small v-if="item.errorCode" class="cell-note error-text">{{ item.errorCode }}</small></td>
               <td>{{ item.upstreamCallCount }}<span v-if="item.retryCount">（重试 {{ item.retryCount }}）</span></td>

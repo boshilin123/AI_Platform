@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 
+from app.infrastructure.llm.catalog import ModelCatalogResult, get_model_catalog_client
 from app.infrastructure.llm.dependencies import get_llm_client
 from app.infrastructure.llm.models import LlmResponse, TokenUsage, UpstreamAttempt
 from app.main import app
@@ -30,6 +31,92 @@ def test_health_and_safe_settings(client):
     assert "apiKeyConfigured" in payload
     assert "apiKey" not in payload
     assert "gptsapiApiKey" not in payload
+    assert payload["adminAuthConfigured"] is True
+
+
+def test_admin_login_runtime_configuration_and_audit(client):
+    unauthorized = client.put(
+        "/api/v1/settings/llm",
+        json={"baseUrl": "https://api.gptsapi.net/v1", "model": "test-model-b"},
+    )
+    assert unauthorized.status_code == 401
+
+    invalid_login = client.post(
+        "/api/v1/admin/login",
+        json={"username": "test-admin", "password": "wrong-password"},
+    )
+    assert invalid_login.status_code == 401
+
+    login = client.post(
+        "/api/v1/admin/login",
+        json={"username": "test-admin", "password": "test-admin-password"},
+    )
+    assert login.status_code == 200
+    token = login.json()["data"]["accessToken"]
+    admin_headers = {"Authorization": f"Bearer {token}"}
+
+    class FakeCatalogClient:
+        async def list_models(self, **_):
+            return ModelCatalogResult(
+                models=["test-model-a", "test-model-b"],
+                attempt=UpstreamAttempt(
+                    attempt_no=1,
+                    attempt_type="model_discovery",
+                    status="success",
+                    http_status=200,
+                    error_code=None,
+                    retryable=False,
+                    duration_ms=3,
+                ),
+            )
+
+    app.dependency_overrides[get_model_catalog_client] = lambda: FakeCatalogClient()
+    try:
+        models = client.get(
+            "/api/v1/settings/models",
+            params={"baseUrl": "https://api.gptsapi.net/v1"},
+            headers=admin_headers,
+        )
+        assert models.status_code == 200
+        assert models.json()["data"]["models"] == ["test-model-a", "test-model-b"]
+
+        update = client.put(
+            "/api/v1/settings/llm",
+            json={"baseUrl": "https://api.gptsapi.net/v1", "model": "test-model-b"},
+            headers=admin_headers,
+        )
+        assert update.status_code == 200
+        assert update.json()["data"]["model"] == "test-model-b"
+        assert update.json()["data"]["configurationSource"] == "database"
+
+        rejected_url = client.put(
+            "/api/v1/settings/llm",
+            json={"baseUrl": "https://untrusted.example/v1", "model": "test-model-b"},
+            headers=admin_headers,
+        )
+        assert rejected_url.status_code == 422
+
+        audits = client.get(
+            "/api/v1/settings/audits?page=1&pageSize=10",
+            headers=admin_headers,
+        )
+        assert audits.status_code == 200
+        items = audits.json()["data"]["items"]
+        assert any(
+            item["action"] == "settings.llm.update" and item["status"] == "success"
+            for item in items
+        )
+        assert any(
+            item["action"] == "settings.llm.update" and item["status"] == "failed"
+            for item in items
+        )
+    finally:
+        app.dependency_overrides.pop(get_model_catalog_client, None)
+
+    logout = client.delete("/api/v1/admin/session", headers=admin_headers)
+    assert logout.status_code == 200
+    expired = client.get("/api/v1/admin/session", headers=admin_headers)
+    assert expired.status_code == 401
 
 
 def test_recruitment_flow_creates_audit_records(client):
@@ -71,6 +158,9 @@ def test_recruitment_flow_creates_audit_records(client):
     assert dashboard.status_code == 200
     assert dashboard.json()["data"]["stats"]["businessRequests"] >= 3
     assert dashboard.json()["data"]["recentRequests"][0]["createdAt"].endswith(("Z", "+00:00"))
+    usage_trend = dashboard.json()["data"]["usageTrend"]
+    assert len(usage_trend) == 7
+    assert sum(point["requestCount"] for point in usage_trend) >= 3
 
 
 def test_validation_error_uses_standard_envelope(client):
@@ -141,6 +231,7 @@ def test_format_repair_is_a_separate_upstream_call_not_a_retry(client):
             if attempt_type == "primary":
                 content = "not-json"
             else:
+                assert RESUME_TEXT in request.messages[-1].content
                 content = json.dumps(
                     {
                         "name": "Alice",
@@ -169,6 +260,70 @@ def test_format_repair_is_a_separate_upstream_call_not_a_retry(client):
         app.dependency_overrides.pop(get_llm_client, None)
 
     assert response.status_code == 200
+    request_id = response.json()["requestId"]
+    audits = client.get(f"/api/v1/audits?requestId={request_id}")
+    item = audits.json()["data"]["items"][0]
+    assert item["upstreamCallCount"] == 2
+    assert item["retryCount"] == 0
+    assert item["totalTokens"] == 6
+
+
+def test_empty_resume_result_triggers_format_repair(client):
+    class EmptyThenRepairingClient:
+        async def chat(self, request, attempt_type="primary"):
+            usage = TokenUsage(prompt_tokens=2, completion_tokens=1, total_tokens=3)
+            attempt = UpstreamAttempt(
+                attempt_no=1,
+                attempt_type=attempt_type,
+                status="success",
+                http_status=200,
+                error_code=None,
+                retryable=False,
+                duration_ms=1,
+                usage=usage,
+            )
+            if attempt_type == "primary":
+                content = json.dumps(
+                    {
+                        "name": None,
+                        "school": None,
+                        "major": None,
+                        "graduationTime": None,
+                        "skills": [],
+                        "projects": [],
+                    }
+                )
+            else:
+                assert RESUME_TEXT in request.messages[-1].content
+                content = json.dumps(
+                    {
+                        "name": "Alice",
+                        "school": None,
+                        "major": None,
+                        "graduationTime": None,
+                        "skills": ["Python"],
+                        "projects": [],
+                    }
+                )
+            return LlmResponse(
+                content=content,
+                model=request.model,
+                usage=usage,
+                attempts=[attempt],
+            )
+
+    app.dependency_overrides[get_llm_client] = lambda: EmptyThenRepairingClient()
+    try:
+        response = client.post(
+            "/api/v1/recruitment/resumes/parse",
+            json={"resumeText": RESUME_TEXT},
+            headers={"X-Caller-System": "pytest-empty-repair"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_llm_client, None)
+
+    assert response.status_code == 200
+    assert response.json()["data"]["name"] == "Alice"
     request_id = response.json()["requestId"]
     audits = client.get(f"/api/v1/audits?requestId={request_id}")
     item = audits.json()["data"]["items"][0]

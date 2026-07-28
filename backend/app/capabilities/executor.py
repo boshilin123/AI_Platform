@@ -60,11 +60,19 @@ class StructuredCapabilityExecutor:
                     LlmMessage(
                         role="system",
                         content=(
-                            "将下面内容修复为合法 JSON。只输出 JSON，不要添加 Markdown。"
+                            "根据原始任务输入和待修复输出，生成符合目标 Schema 的合法 JSON。"
+                            "保留原始输入中可验证的信息，不得用全空字段替代已经存在的信息。"
+                            "只输出 JSON，不要添加 Markdown，也不要猜测原始输入中不存在的信息。"
                             f"目标 JSON Schema：{json.dumps(result_type.model_json_schema(), ensure_ascii=False)}"
                         ),
                     ),
-                    LlmMessage(role="user", content=primary.content),
+                    LlmMessage(
+                        role="user",
+                        content=(
+                            f"原始任务输入：\n{input_content}\n\n"
+                            f"待修复的模型输出：\n{primary.content}"
+                        ),
+                    ),
                 ]
                 repaired = await llm_client.chat(
                     LlmRequest(messages=repair_messages, model=model),

@@ -155,3 +155,29 @@ class AuditRepository:
             "duration_total": int(row[4] or 0),
             "success_count": int(row[5] or 0),
         }
+
+    async def request_counts_by_intervals(
+        self,
+        session: AsyncSession,
+        intervals: list[tuple[datetime, datetime]],
+    ) -> list[int]:
+        if not intervals:
+            return []
+        columns = [
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            (AiRequestAudit.created_at >= start)
+                            & (AiRequestAudit.created_at < end),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            )
+            for start, end in intervals
+        ]
+        row = (await session.execute(select(*columns))).one()
+        return [int(value or 0) for value in row]

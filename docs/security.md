@@ -5,6 +5,15 @@
 - `GPTSAPI_API_KEY` 只通过后端环境变量或部署 Secret 注入。
 - API Key 不写入数据库、前端、Git、Dockerfile、响应和普通日志。
 - 配置接口仅暴露是否已配置。
+- 管理页面只允许修改受控 Base URL 和当前模型，不提供 API Key 输入框。
+
+## 管理员配置权限
+
+- 管理员账号和密码仅通过 `ADMIN_USERNAME`、`ADMIN_PASSWORD` 注入 API 容器，不写入数据库或前端构建产物。
+- 登录成功后服务端生成随机短期会话令牌；令牌只保存在 API 进程内存和浏览器 `sessionStorage`，退出、过期或 API 重启后失效。
+- 配置写入、模型发现和管理审计接口同时要求内部 Token 与管理员 Bearer 会话。
+- Base URL 只允许 HTTPS、443 端口和 `GPTSAPI_ALLOWED_HOSTS` 中的精确主机名，并要求 `/v1` 路径，防止将后端变成任意 URL 请求代理。
+- 每次模型发现和配置保存都写入管理操作审计，不记录 API Key、密码、会话令牌或上游响应全文。
 
 ## 调用鉴权
 

@@ -44,6 +44,10 @@ export interface DashboardData {
     retryCount: number;
     averageDurationMs: number;
   };
+  usageTrend: Array<{
+    date: string;
+    requestCount: number;
+  }>;
   recentRequests: AuditItem[];
   generatedAt: string;
 }
@@ -69,6 +73,48 @@ export interface SettingsData {
   retryDelaysSeconds: number[];
   auditRetentionDays: number;
   internalAuthEnabled: boolean;
+  adminAuthConfigured: boolean;
+  configurationSource: "environment" | "database";
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+export interface AdminSessionData {
+  username: string;
+  accessToken: string;
+  expiresAt: string;
+}
+
+export interface AdminSessionStatus {
+  username: string;
+  expiresAt: string;
+}
+
+export interface ModelListData {
+  baseUrl: string;
+  models: string[];
+}
+
+export interface AdminOperationAuditItem {
+  requestId: string;
+  actor: string;
+  action: string;
+  status: string;
+  httpStatus: number;
+  errorCode: string | null;
+  durationMs: number;
+  oldBaseUrl: string | null;
+  newBaseUrl: string | null;
+  oldModel: string | null;
+  newModel: string | null;
+  createdAt: string;
+}
+
+export interface AdminOperationAuditList {
+  items: AdminOperationAuditItem[];
+  page: number;
+  pageSize: number;
+  total: number;
 }
 
 export interface ResumeParseResult {
