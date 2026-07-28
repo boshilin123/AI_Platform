@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { apiRequest } from "./api/client";
 import companyLogo from "./assets/company-logo.png";
@@ -9,6 +9,7 @@ const route = useRoute();
 const pageTitle = computed(() => String(route.meta.title ?? "AI Agent 中台"));
 const runtimeSettings = ref<SettingsData | null>(null);
 const runtimeStatus = ref<"loading" | "ready" | "unavailable">("loading");
+const navigationOpen = ref(false);
 
 const runtimeStatusLabel = computed(() => {
   if (runtimeStatus.value === "loading") return "正在读取 AI 配置";
@@ -41,6 +42,27 @@ function handleRuntimeConfigurationUpdate(): void {
   void loadRuntimeStatus();
 }
 
+function closeNavigation(): void {
+  navigationOpen.value = false;
+}
+
+function handleKeydown(event: KeyboardEvent): void {
+  if (event.key === "Escape") closeNavigation();
+}
+
+function syncNavigationScrollLock(): void {
+  const shouldLock = navigationOpen.value && window.innerWidth <= 900;
+  document.body.classList.toggle("navigation-open", shouldLock);
+}
+
+function handleViewportChange(): void {
+  if (window.innerWidth > 900) {
+    closeNavigation();
+    return;
+  }
+  syncNavigationScrollLock();
+}
+
 const navigation = [
   { to: "/", label: "工作台", group: "工作空间", icon: "home" },
   { to: "/recruitment", label: "招聘助手", group: "工作空间", icon: "recruitment" },
@@ -54,21 +76,40 @@ const groups = ["工作空间", "管理"] as const;
 onMounted(() => {
   void loadRuntimeStatus();
   window.addEventListener("runtime-llm-config-updated", handleRuntimeConfigurationUpdate);
+  window.addEventListener("keydown", handleKeydown);
+  window.addEventListener("resize", handleViewportChange);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("runtime-llm-config-updated", handleRuntimeConfigurationUpdate);
+  window.removeEventListener("keydown", handleKeydown);
+  window.removeEventListener("resize", handleViewportChange);
+  document.body.classList.remove("navigation-open");
 });
+
+watch(() => route.fullPath, closeNavigation);
+watch(navigationOpen, syncNavigationScrollLock);
 </script>
 
 <template>
   <div class="app-shell">
-    <aside class="sidebar">
+    <button
+      v-if="navigationOpen"
+      class="navigation-backdrop"
+      type="button"
+      aria-label="关闭主导航"
+      @click="closeNavigation"
+    ></button>
+
+    <aside id="main-navigation" class="sidebar" :class="{ open: navigationOpen }">
       <div class="brand">
         <div class="brand-logo">
           <img :src="companyLogo" alt="公司 Logo" />
         </div>
         <strong>AI Agent 中台</strong>
+        <button class="sidebar-close" type="button" aria-label="关闭主导航" @click="closeNavigation">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        </button>
       </div>
 
       <nav class="navigation" aria-label="主导航">
@@ -78,6 +119,7 @@ onBeforeUnmount(() => {
             v-for="item in navigation.filter((entry) => entry.group === group)"
             :key="item.to"
             :to="item.to"
+            @click="closeNavigation"
           >
             <svg v-if="item.icon === 'home'" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M3 11.2 12 4l9 7.2" /><path d="M5.5 10v9h13v-9" /><path d="M9.5 19v-5h5v5" />
@@ -110,12 +152,25 @@ onBeforeUnmount(() => {
 
     <section class="content-shell">
       <header class="topbar">
-        <h1>{{ pageTitle }}</h1>
+        <div class="topbar-title">
+          <button
+            class="navigation-toggle"
+            type="button"
+            aria-label="打开主导航"
+            aria-controls="main-navigation"
+            :aria-expanded="navigationOpen"
+            @click="navigationOpen = true"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          </button>
+          <h1>{{ pageTitle }}</h1>
+        </div>
         <div class="top-actions">
           <div
             class="service-pill"
             :class="{ unavailable: runtimeStatus === 'unavailable' }"
             :title="runtimeStatusTitle"
+            :aria-label="runtimeStatusLabel"
           >
             <span class="status-dot"></span>
             <span class="service-label">{{ runtimeStatusLabel }}</span>
