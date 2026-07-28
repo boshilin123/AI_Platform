@@ -122,7 +122,7 @@ onMounted(load);
     <section>
       <div class="section-title-row">
         <h2>业务场景</h2>
-        <span>当前已接入 1 个场景</span>
+        <span>当前已接入 2 个场景</span>
       </div>
       <div class="scenario-layout">
         <article class="panel scenario-card">
@@ -143,7 +143,25 @@ onMounted(load);
           </div>
         </article>
 
-        <article class="panel future-card">
+        <article class="panel scenario-card">
+          <div class="scenario-card-top">
+            <span class="scene-icon">
+              <svg viewBox="0 0 24 24"><path d="M4 14h3l4 4V6L7 10H4z" /><path d="M15 9c1.7 1.6 1.7 4.4 0 6M18 6c3.4 3.2 3.4 8.8 0 12" /></svg>
+            </span>
+            <span class="status-tag">已上线</span>
+          </div>
+          <h2>文字转语音助手</h2>
+          <p>通过独立的语音合成能力将通知、培训材料和办公文本转换为可试听、可下载的音频，并复用中台凭据与统一审计。</p>
+          <div class="scene-tags"><span>tts-1</span><span>多声音</span><span>MP3 / WAV</span></div>
+          <div class="scene-actions">
+            <RouterLink class="button primary" to="/tts">
+              进入语音助手
+              <svg width="15" height="15" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </RouterLink>
+          </div>
+        </article>
+
+        <article class="panel future-card scenario-future-wide">
           <div class="future-head"><strong>后续业务接入</strong><span class="status-tag">规划中</span></div>
           <div class="future-list">
             <div class="future-item">

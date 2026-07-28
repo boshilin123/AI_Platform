@@ -79,6 +79,7 @@ class RuntimeLlmConfiguration(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     base_url: Mapped[str] = mapped_column(String(512), nullable=False)
     model: Mapped[str] = mapped_column(String(128), nullable=False)
+    speech_model: Mapped[str] = mapped_column(String(128), nullable=False, default="tts-1")
     updated_by: Mapped[str] = mapped_column(String(64), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
@@ -100,6 +101,8 @@ class AdminOperationAudit(Base):
     new_base_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     old_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     new_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    old_speech_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    new_speech_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now, index=True
     )

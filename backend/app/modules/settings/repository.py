@@ -21,6 +21,8 @@ class AdminOperationAuditWrite:
     new_base_url: str | None = None
     old_model: str | None = None
     new_model: str | None = None
+    old_speech_model: str | None = None
+    new_speech_model: str | None = None
 
 
 class SettingsRepository:
@@ -41,6 +43,7 @@ class SettingsRepository:
         *,
         base_url: str,
         model: str,
+        speech_model: str,
         actor: str,
         audit: AdminOperationAuditWrite,
     ) -> RuntimeLlmConfiguration:
@@ -50,6 +53,7 @@ class SettingsRepository:
                 id=1,
                 base_url=base_url,
                 model=model,
+                speech_model=speech_model,
                 updated_by=actor,
                 updated_at=utc_now(),
             )
@@ -57,6 +61,7 @@ class SettingsRepository:
         else:
             row.base_url = base_url
             row.model = model
+            row.speech_model = speech_model
             row.updated_by = actor
             row.updated_at = utc_now()
         session.add(AdminOperationAudit(**asdict(audit)))

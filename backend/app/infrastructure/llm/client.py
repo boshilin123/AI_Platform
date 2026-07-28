@@ -37,6 +37,7 @@ class OpenAICompatibleLlmClient:
         self.runtime_config = runtime_config or LlmRuntimeConfig(
             base_url=settings.gptsapi_base_url,
             model=settings.gptsapi_model,
+            speech_model=settings.gptsapi_speech_model,
         )
 
     @property

@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     gptsapi_base_url: str = "https://api.gptsapi.net/v1"
     gptsapi_api_key: str = ""
     gptsapi_model: str = "gpt-5.6-luna"
+    gptsapi_speech_model: str = "tts-1"
     gptsapi_allowed_hosts: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["api.gptsapi.net"]
     )
@@ -52,6 +53,9 @@ class Settings(BaseSettings):
     recruitment_max_pdf_pages: int = Field(default=20, ge=1, le=100)
     recruitment_max_extracted_chars: int = Field(default=100_000, ge=1_000, le=500_000)
     recruitment_max_docx_uncompressed_mb: int = Field(default=50, ge=1, le=200)
+    speech_max_input_chars: int = Field(default=4096, ge=1, le=4096)
+    speech_max_stream_chars: int = Field(default=50_000, ge=4096, le=200_000)
+    speech_max_audio_mb: int = Field(default=25, ge=1, le=100)
 
     @field_validator("app_cors_origins", mode="before")
     @classmethod

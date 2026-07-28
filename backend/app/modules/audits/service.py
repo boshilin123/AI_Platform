@@ -73,6 +73,7 @@ class AuditService:
                 "上游调用",
                 "重试",
                 "Token",
+                "请求字符数",
                 "耗时(ms)",
                 "时间",
             ]
@@ -89,6 +90,7 @@ class AuditService:
                     row.upstream_call_count,
                     row.retry_count,
                     row.total_tokens,
+                    row.request_content_length,
                     row.duration_ms,
                     as_utc(row.created_at).isoformat(),
                 ]
@@ -113,6 +115,7 @@ class AuditService:
             prompt_tokens=row.prompt_tokens,
             completion_tokens=row.completion_tokens,
             total_tokens=row.total_tokens,
+            request_content_length=row.request_content_length,
             duration_ms=row.duration_ms,
             prompt_version=row.prompt_version,
             created_at=as_utc(row.created_at),

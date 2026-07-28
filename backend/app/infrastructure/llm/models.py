@@ -23,6 +23,7 @@ class LlmRequest:
 class LlmRuntimeConfig:
     base_url: str
     model: str
+    speech_model: str
 
 
 @dataclass(slots=True)

@@ -30,6 +30,7 @@ export interface AuditItem {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  requestContentLength: number;
   durationMs: number;
   promptVersion: string;
   createdAt: string;
@@ -66,11 +67,14 @@ export interface SettingsData {
   apiKeyConfigured: boolean;
   baseUrl: string;
   model: string;
+  speechModel: string;
   connectTimeoutSeconds: number;
   readTimeoutSeconds: number;
   streamIdleTimeoutSeconds: number;
   maxRetries: number;
   retryDelaysSeconds: number[];
+  speechMaxInputChars: number;
+  speechMaxStreamChars: number;
   auditRetentionDays: number;
   internalAuthEnabled: boolean;
   adminAuthConfigured: boolean;
@@ -93,6 +97,8 @@ export interface AdminSessionStatus {
 export interface ModelListData {
   baseUrl: string;
   models: string[];
+  chatModels: string[];
+  speechModels: string[];
 }
 
 export interface AdminOperationAuditItem {
@@ -107,6 +113,8 @@ export interface AdminOperationAuditItem {
   newBaseUrl: string | null;
   oldModel: string | null;
   newModel: string | null;
+  oldSpeechModel: string | null;
+  newSpeechModel: string | null;
   createdAt: string;
 }
 

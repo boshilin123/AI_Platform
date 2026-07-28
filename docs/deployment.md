@@ -68,6 +68,7 @@ docker ps --filter label=com.docker.compose.project=bluedot-ai-platform
 - `APP_CORS_ORIGINS`
 - `WEB_PORT`，当前约定为 `18554`
 - `NGINX_CLIENT_MAX_BODY_SIZE`，默认 `11m`，应略大于后端简历上传上限
+- `SPEECH_MAX_STREAM_CHARS`，默认 `50000`，限制单次长文本流式任务的总字符数
 
 首次部署：
 
@@ -89,6 +90,8 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
 管理员账号和密码只进入 API 容器环境，不写入镜像或数据库。管理页面保存的 Base URL 和模型写入 MySQL；后续更新容器不会清除该配置。若要允许其他 GPTSAPI API 主机，必须先在 `GPTSAPI_ALLOWED_HOSTS` 中以逗号分隔添加精确域名，再重建 API 容器。
 
 后端镜像包含 MySQL 8.4 `caching_sha2_password` 认证所需的 `cryptography` 运行依赖。构建使用 BuildKit pip 缓存；第一次下载仍可能较慢，后续重建可以复用已下载的 wheel。
+
+Nginx 的 `/api/` 代理已关闭 `proxy_buffering`，并保留较长读取超时，使 TTS 音频块可以直接转发到浏览器。不要在外层网关重新开启响应缓冲，否则前端虽然选择“流式播放”，仍会等待完整音频后才收到数据。
 
 镜像源调整不会删除或重建 `bluedot-ai-platform_mysql-data` 数据卷。若服务器已经存在
 `mysql:8.4`，可先执行下面的命令为同一个本地镜像增加代理仓库标签，避免重复下载：

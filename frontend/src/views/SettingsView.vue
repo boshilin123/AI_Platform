@@ -19,10 +19,11 @@ import { formatBeijingDateTime } from "../utils/datetime";
 
 const settings = ref<SettingsData | null>(null);
 const adminSession = ref<AdminSessionStatus | null>(null);
-const modelOptions = ref<string[]>([]);
+const chatModelOptions = ref<string[]>([]);
+const speechModelOptions = ref<string[]>([]);
 const audits = ref<AdminOperationAuditList | null>(null);
 const loginForm = reactive({ username: "", password: "" });
-const configurationForm = reactive({ baseUrl: "", model: "" });
+const configurationForm = reactive({ baseUrl: "", model: "", speechModel: "" });
 const error = ref("");
 const success = ref("");
 const loading = ref(false);
@@ -34,6 +35,7 @@ const isAdmin = computed(() => Boolean(adminSession.value));
 function syncConfigurationForm(data: SettingsData): void {
   configurationForm.baseUrl = data.baseUrl;
   configurationForm.model = data.model;
+  configurationForm.speechModel = data.speechModel;
 }
 
 async function loadSettings(): Promise<void> {
@@ -90,7 +92,8 @@ async function logout(): Promise<void> {
   } finally {
     clearAdminToken();
     adminSession.value = null;
-    modelOptions.value = [];
+    chatModelOptions.value = [];
+    speechModelOptions.value = [];
     audits.value = null;
     success.value = "已退出管理员登录。";
   }
@@ -107,11 +110,17 @@ async function loadModels(showMessage = true): Promise<void> {
       await adminApiRequest<ModelListData>(`/api/v1/settings/models?${query.toString()}`)
     ).data;
     configurationForm.baseUrl = data.baseUrl;
-    modelOptions.value = data.models;
-    if (!data.models.includes(configurationForm.model)) {
-      configurationForm.model = data.models[0] ?? "";
+    chatModelOptions.value = data.chatModels;
+    speechModelOptions.value = data.speechModels;
+    if (!data.chatModels.includes(configurationForm.model)) {
+      configurationForm.model = data.chatModels[0] ?? "";
     }
-    if (showMessage) success.value = `已从上游读取 ${data.models.length} 个可用模型。`;
+    if (!data.speechModels.includes(configurationForm.speechModel)) {
+      configurationForm.speechModel = data.speechModels[0] ?? "";
+    }
+    if (showMessage) {
+      success.value = `已读取 ${data.chatModels.length} 个文本模型和 ${data.speechModels.length} 个语音模型。`;
+    }
     await loadAudits();
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "模型列表读取失败";
@@ -135,7 +144,7 @@ async function saveConfiguration(): Promise<void> {
     settings.value = data;
     syncConfigurationForm(data);
     window.dispatchEvent(new Event("runtime-llm-config-updated"));
-    success.value = "配置已保存并立即生效，后续 AI 请求将使用新的 Base URL 和模型。";
+    success.value = "配置已保存并立即生效，文本调用和语音合成将分别使用对应模型。";
     await Promise.all([loadModels(false), loadAudits()]);
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "配置保存失败";
@@ -163,7 +172,8 @@ async function loadAudits(): Promise<void> {
 function resetConfiguration(): void {
   if (!settings.value) return;
   syncConfigurationForm(settings.value);
-  modelOptions.value = [];
+  chatModelOptions.value = [];
+  speechModelOptions.value = [];
   success.value = "已恢复为当前生效值，尚未保存任何修改。";
 }
 
@@ -184,7 +194,7 @@ onMounted(async () => {
   <div class="stack-lg">
     <div class="notice">
       <strong>安全配置</strong>
-      <span>API Key 始终只由后端环境变量读取；管理员登录后可修改受信任 Base URL 和当前使用模型。</span>
+      <span>API Key 始终只由后端环境变量读取；文本模型与语音模型共用凭据，但使用相互独立的调用接口。</span>
     </div>
     <ErrorNotice v-if="error" :message="error" />
     <div v-if="success" class="notice"><strong>操作完成</strong><span>{{ success }}</span></div>
@@ -192,7 +202,7 @@ onMounted(async () => {
     <section v-if="settings" class="settings-grid settings-primary">
       <article class="panel setting-section">
         <div class="panel-heading">
-          <div><h2>GPT 接口配置</h2><div class="muted">数据库配置保存后立即覆盖环境默认值</div></div>
+          <div><h2>AI 接口配置</h2><div class="muted">文本与语音模型分别配置，保存后立即生效</div></div>
           <span class="badge success">{{ settings.mockMode || settings.apiKeyConfigured ? "已就绪" : "待配置" }}</span>
         </div>
         <div class="settings-notice">真实 API Key 不进入前端、不写入普通日志，也不通过任何接口返回。Base URL 仅允许服务端允许列表中的 HTTPS 域名。</div>
@@ -206,25 +216,35 @@ onMounted(async () => {
               required
               autocomplete="url"
               placeholder="https://api.example.com/v1"
-              @input="modelOptions = []"
+              @input="chatModelOptions = []; speechModelOptions = []"
             />
           </label>
           <label class="field">
-            <span>模型名称</span>
-            <select v-model="configurationForm.model" required :disabled="modelsLoading || !modelOptions.length">
-              <option v-if="!modelOptions.length" :value="configurationForm.model">
+            <span>文本模型</span>
+            <select v-model="configurationForm.model" required :disabled="modelsLoading || !chatModelOptions.length">
+              <option v-if="!chatModelOptions.length" :value="configurationForm.model">
                 {{ modelsLoading ? "正在读取模型列表…" : "请先读取可用模型" }}
               </option>
-              <option v-for="model in modelOptions" :key="model" :value="model">{{ model }}</option>
+              <option v-for="model in chatModelOptions" :key="model" :value="model">{{ model }}</option>
             </select>
             <small>招聘助手依赖文本对话和结构化 JSON 输出，建议优先选择 GPT 系列模型。</small>
+          </label>
+          <label class="field">
+            <span>语音模型</span>
+            <select v-model="configurationForm.speechModel" required :disabled="modelsLoading || !speechModelOptions.length">
+              <option v-if="!speechModelOptions.length" :value="configurationForm.speechModel">
+                {{ modelsLoading ? "正在读取模型列表…" : "请先读取可用模型" }}
+              </option>
+              <option v-for="model in speechModelOptions" :key="model" :value="model">{{ model }}</option>
+            </select>
+            <small>文字转语音助手只展示并使用 tts-1 与 tts-1-hd，不会影响招聘助手。</small>
           </label>
           <div class="configuration-actions">
             <button class="button" type="button" :disabled="modelsLoading" @click="loadModels()">
               {{ modelsLoading ? "读取中" : "读取可用模型" }}
             </button>
             <button class="button" type="button" :disabled="saving" @click="resetConfiguration">恢复当前值</button>
-            <button class="button primary" type="submit" :disabled="saving || modelsLoading || !modelOptions.length">
+            <button class="button primary" type="submit" :disabled="saving || modelsLoading || !chatModelOptions.length || !speechModelOptions.length">
               {{ saving ? "保存中" : "保存并立即生效" }}
             </button>
           </div>
@@ -232,7 +252,8 @@ onMounted(async () => {
 
         <dl v-else class="runtime-config-list">
           <div class="wide"><dt>Base URL</dt><dd class="mono">{{ settings.baseUrl }}</dd></div>
-          <div><dt>模型名称</dt><dd>{{ settings.model }}</dd></div>
+          <div><dt>文本模型</dt><dd>{{ settings.model }}</dd></div>
+          <div><dt>语音模型</dt><dd>{{ settings.speechModel }}</dd></div>
           <div><dt>API Key 状态</dt><dd>{{ settings.apiKeyConfigured ? "服务端已配置" : "未配置" }}</dd></div>
           <div><dt>配置来源</dt><dd>{{ settings.configurationSource === "database" ? "数据库运行配置" : "部署环境默认值" }}</dd></div>
           <div><dt>最近修改</dt><dd>{{ settings.updatedAt ? formatBeijingDateTime(settings.updatedAt) : "尚未在页面修改" }}</dd></div>
@@ -263,18 +284,20 @@ onMounted(async () => {
           <div class="model-verification-heading">
             <span>
               <small>当前生效模型</small>
-              <strong>{{ settings.model }}</strong>
+              <strong>{{ settings.model }} / {{ settings.speechModel }}</strong>
             </span>
             <span class="config-state enabled">配置已加载</span>
           </div>
           <h3>如何确认模型真实生效？</h3>
           <ol>
-            <li>保存模型配置后，进入招聘助手完成一次 AI 调用。</li>
+            <li>文本模型可进入招聘助手完成一次 AI 调用。</li>
+            <li>语音模型可进入文字转语音助手生成一次音频。</li>
             <li>记录返回结果对应的 Request ID。</li>
             <li>在调用审计中搜索该 ID，核对“调用模型”是否与当前模型一致。</li>
           </ol>
           <div class="model-verification-actions">
             <RouterLink class="button" to="/recruitment">发起验证调用</RouterLink>
+            <RouterLink class="button" to="/tts">验证语音模型</RouterLink>
             <RouterLink class="button" to="/audits">查看调用审计</RouterLink>
           </div>
         </div>
@@ -317,7 +340,10 @@ onMounted(async () => {
               <td>{{ item.actor }}</td>
               <td>
                 <span v-if="item.action === 'settings.llm.update'" class="audit-change">
-                  {{ item.oldModel ?? "—" }} → {{ item.newModel ?? "—" }}
+                  文本：{{ item.oldModel ?? "—" }} → {{ item.newModel ?? "—" }}
+                  <small class="cell-note">
+                    语音：{{ item.oldSpeechModel ?? "—" }} → {{ item.newSpeechModel ?? "—" }}
+                  </small>
                 </span>
                 <span v-else class="mono">{{ item.newBaseUrl }}</span>
               </td>

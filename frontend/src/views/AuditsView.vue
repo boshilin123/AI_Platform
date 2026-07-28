@@ -83,6 +83,7 @@ onMounted(() => load());
             <option value="recruitment.resume.parse">简历解析</option>
             <option value="recruitment.screening.evaluate">岗位初筛</option>
             <option value="recruitment.interview-kit.generate">面试题生成</option>
+            <option value="tts.speech.synthesize">文字转语音</option>
           </select>
           <select v-model="status" aria-label="调用状态">
             <option value="">全部状态</option>
@@ -104,15 +105,21 @@ onMounted(() => load());
       </div>
       <div v-if="data.items.length" class="table-wrap">
         <table>
-          <thead><tr><th>Request ID</th><th>业务 / 能力</th><th>模式</th><th>状态</th><th>上游调用</th><th>Token</th><th>耗时</th><th>时间</th></tr></thead>
+          <thead><tr><th>Request ID</th><th>业务 / 能力</th><th>模式</th><th>状态</th><th>上游调用</th><th>Token / 字符数</th><th>耗时</th><th>时间</th></tr></thead>
           <tbody>
             <tr v-for="item in data.items" :key="item.requestId">
               <td><span class="mono">{{ item.requestId }}</span><small class="cell-note">{{ item.callerSystem }}</small></td>
               <td>{{ item.capabilityCode }}<small class="cell-note">调用模型：{{ item.model }}</small></td>
-              <td><span class="badge neutral">{{ item.requestMode === "stream" ? "流式" : "非流式" }}</span></td>
+              <td>
+                <span class="badge neutral">
+                  {{ item.requestMode === "stream" ? "流式" : item.requestMode === "binary" ? "音频" : "非流式" }}
+                </span>
+              </td>
               <td><span class="badge" :class="item.status === 'success' ? 'success' : 'danger'">{{ item.status === "success" ? "成功" : "失败" }}</span><small v-if="item.errorCode" class="cell-note error-text">{{ item.errorCode }}</small></td>
               <td>{{ item.upstreamCallCount }}<span v-if="item.retryCount">（重试 {{ item.retryCount }}）</span></td>
-              <td>{{ item.totalTokens.toLocaleString() }}</td><td>{{ item.durationMs }} ms</td>
+              <td>
+                {{ item.requestMode === "binary" ? `${item.requestContentLength.toLocaleString()} 字符` : item.totalTokens.toLocaleString() }}
+              </td><td>{{ item.durationMs }} ms</td>
               <td>{{ formatBeijingDateTime(item.createdAt) }}</td>
             </tr>
           </tbody>

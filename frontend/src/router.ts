@@ -4,6 +4,7 @@ import AuditsView from "./views/AuditsView.vue";
 import DashboardView from "./views/DashboardView.vue";
 import RecruitmentView from "./views/RecruitmentView.vue";
 import SettingsView from "./views/SettingsView.vue";
+import TtsView from "./views/TtsView.vue";
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -14,6 +15,12 @@ export const router = createRouter({
       name: "recruitment",
       component: RecruitmentView,
       meta: { title: "招聘助手" },
+    },
+    {
+      path: "/tts",
+      name: "tts",
+      component: TtsView,
+      meta: { title: "文字转语音助手" },
     },
     { path: "/audits", name: "audits", component: AuditsView, meta: { title: "调用审计" } },
     {

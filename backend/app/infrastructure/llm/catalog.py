@@ -10,6 +10,31 @@ from app.core.errors import LlmUpstreamError
 from app.infrastructure.llm.error_mapper import map_http_error
 from app.infrastructure.llm.models import UpstreamAttempt
 
+SPEECH_MODELS = frozenset({"tts-1", "tts-1-hd"})
+NON_CHAT_MODEL_PREFIXES = (
+    "tts-",
+    "whisper-",
+    "text-embedding-",
+)
+NON_CHAT_MODEL_FRAGMENTS = (
+    "image",
+    "embedding",
+    "transcription",
+)
+
+
+def is_speech_model(model: str) -> bool:
+    return model.casefold() in SPEECH_MODELS
+
+
+def is_chat_model(model: str) -> bool:
+    normalized = model.casefold()
+    return (
+        normalized not in SPEECH_MODELS
+        and not normalized.startswith(NON_CHAT_MODEL_PREFIXES)
+        and not any(fragment in normalized for fragment in NON_CHAT_MODEL_FRAGMENTS)
+    )
+
 
 @dataclass(frozen=True, slots=True)
 class ModelCatalogResult:

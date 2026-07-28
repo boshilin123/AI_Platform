@@ -1,6 +1,6 @@
 # BLUEDOT AI Agent 中台历史索引
 
-> 更新时间：2026-07-27
+> 更新时间：2026-07-28
 
 ## 默认读取规则
 
@@ -18,6 +18,7 @@
 | GPT 调用、错误和重试 | `backend/app/infrastructure/llm/` |
 | Token 与调用审计 | `backend/app/modules/audits/`、`backend/app/db/models.py` |
 | 招聘助手 | `backend/app/scenarios/recruitment/`、`frontend/src/views/RecruitmentView.vue` |
+| 文字转语音 | `backend/app/infrastructure/speech/`、`backend/app/scenarios/tts/`、`frontend/src/views/TtsView.vue` |
 | 工作台 | `backend/app/modules/dashboard/`、`frontend/src/views/DashboardView.vue` |
 | 基础配置 | `backend/app/modules/settings/`、`frontend/src/views/SettingsView.vue` |
 | 前端视觉与原型 | `Prototype/AI 能力中台.html`、`frontend/src/App.vue`、`frontend/src/styles/main.css` |
@@ -41,3 +42,7 @@ YYYY-MM-DD-topic-summary.md
 - `2026-07-27-beijing-time-settings-status-summary.md`：MySQL UTC 时区标记、北京时间展示和只读运行配置页面调整。
 - `2026-07-27-usage-trend-model-configuration-review-summary.md`：近 7 天 API 调用次数趋势、GPTSAPI 模型发现和安全配置写入边界。
 - `2026-07-27-admin-runtime-llm-settings-summary.md`：管理员短期会话、受控 Base URL、动态模型、运行时持久化和管理操作审计。
+- `2026-07-28-tts-assistant-summary.md`：共用凭据的独立语音客户端、TTS 场景、模型配置拆分、音频前端和字符数审计。
+- `2026-07-28-tts-rtf-streaming-analysis.md`：真实 TTS 首字节、RTF、chunked 传输和端到端流式改造判断。
+- `2026-07-28-tts-streaming-long-text-summary.md`：用户可选流式 MP3、中英文长文本分段、审计边界与浏览器回退。
+- `2026-07-28-tts-speed-interaction-fix-summary.md`：语速交互语义、真实上游时长对比、即时试听与下载语速修复。

@@ -56,6 +56,7 @@
 
 - `base_url`
 - `model`
+- `speech_model`
 - `updated_by`
 - `updated_at`
 
@@ -74,6 +75,7 @@
 - `duration_ms`
 - `old_base_url` / `new_base_url`
 - `old_model` / `new_model`
+- `old_speech_model` / `new_speech_model`
 - `created_at`
 
 该表不保存管理员密码、会话令牌、API Key 或上游模型列表正文。

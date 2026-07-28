@@ -34,6 +34,7 @@ class AuditItem(CamelModel):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+    request_content_length: int
     duration_ms: int
     prompt_version: str
     created_at: datetime

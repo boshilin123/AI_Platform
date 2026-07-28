@@ -10,7 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.error_codes import ErrorCode
 from app.core.errors import AppError, LlmUpstreamError
-from app.infrastructure.llm.catalog import ModelCatalogClient
+from app.infrastructure.llm.catalog import (
+    ModelCatalogClient,
+    is_chat_model,
+    is_speech_model,
+)
 from app.infrastructure.llm.models import LlmRuntimeConfig, UpstreamAttempt
 from app.modules.settings.repository import AdminOperationAuditWrite, SettingsRepository
 from app.modules.settings.schemas import (
@@ -42,28 +46,40 @@ class SettingsService:
         if row is None or not self._stored_configuration_is_allowed(
             row.base_url,
             row.model,
+            row.speech_model,
             settings,
         ):
             return LlmRuntimeConfig(
                 base_url=settings.gptsapi_base_url.rstrip("/"),
                 model=settings.gptsapi_model,
+                speech_model=settings.gptsapi_speech_model,
             )
-        return LlmRuntimeConfig(base_url=row.base_url, model=row.model)
+        return LlmRuntimeConfig(
+            base_url=row.base_url,
+            model=row.model,
+            speech_model=row.speech_model,
+        )
 
     async def read(self, session: AsyncSession, settings: Settings) -> SettingsData:
         row = await self.repository.get_runtime_configuration(session)
         if row is not None and not self._stored_configuration_is_allowed(
             row.base_url,
             row.model,
+            row.speech_model,
             settings,
         ):
             row = None
         runtime = (
-            LlmRuntimeConfig(base_url=row.base_url, model=row.model)
+            LlmRuntimeConfig(
+                base_url=row.base_url,
+                model=row.model,
+                speech_model=row.speech_model,
+            )
             if row is not None
             else LlmRuntimeConfig(
                 base_url=settings.gptsapi_base_url.rstrip("/"),
                 model=settings.gptsapi_model,
+                speech_model=settings.gptsapi_speech_model,
             )
         )
         return SettingsData(
@@ -72,11 +88,14 @@ class SettingsService:
             api_key_configured=settings.api_key_configured,
             base_url=runtime.base_url,
             model=runtime.model,
+            speech_model=runtime.speech_model,
             connect_timeout_seconds=settings.ai_connect_timeout_seconds,
             read_timeout_seconds=settings.ai_read_timeout_seconds,
             stream_idle_timeout_seconds=settings.ai_stream_idle_timeout_seconds,
             max_retries=settings.ai_max_retries,
             retry_delays_seconds=settings.ai_retry_delays_seconds,
+            speech_max_input_chars=settings.speech_max_input_chars,
+            speech_max_stream_chars=settings.speech_max_stream_chars,
             audit_retention_days=settings.audit_retention_days,
             internal_auth_enabled=bool(settings.internal_api_token),
             admin_auth_configured=settings.admin_auth_configured,
@@ -130,7 +149,12 @@ class SettingsService:
                 attempt=result.attempt,
             ),
         )
-        return ModelListData(base_url=normalized_url, models=result.models)
+        return ModelListData(
+            base_url=normalized_url,
+            models=result.models,
+            chat_models=[model for model in result.models if is_chat_model(model)],
+            speech_models=[model for model in result.models if is_speech_model(model)],
+        )
 
     async def update_llm_settings(
         self,
@@ -145,7 +169,8 @@ class SettingsService:
         current = await self.effective_llm_config(session, settings)
         try:
             normalized_url = self.validate_base_url(payload.baseUrl, settings)
-            model = self.validate_model(payload.model)
+            model = self.validate_chat_model(payload.model)
+            speech_model = self.validate_speech_model(payload.speechModel)
             catalog = await self.discover_models(
                 session,
                 settings,
@@ -157,6 +182,13 @@ class SettingsService:
                 raise AppError(
                     ErrorCode.MODEL_NOT_FOUND,
                     "选择的模型不在上游当前可用列表中",
+                    400,
+                    False,
+                )
+            if speech_model not in catalog.speech_models:
+                raise AppError(
+                    ErrorCode.MODEL_NOT_FOUND,
+                    "选择的语音模型不在上游当前可用列表中",
                     400,
                     False,
                 )
@@ -175,6 +207,8 @@ class SettingsService:
                     new_base_url=payload.baseUrl,
                     old_model=current.model,
                     new_model=payload.model,
+                    old_speech_model=current.speech_model,
+                    new_speech_model=payload.speechModel,
                 ),
             )
             raise
@@ -183,6 +217,7 @@ class SettingsService:
             session,
             base_url=normalized_url,
             model=model,
+            speech_model=speech_model,
             actor=actor,
             audit=AdminOperationAuditWrite(
                 request_id=request_id,
@@ -196,6 +231,8 @@ class SettingsService:
                 new_base_url=normalized_url,
                 old_model=current.model,
                 new_model=model,
+                old_speech_model=current.speech_model,
+                new_speech_model=speech_model,
             ),
         )
         return await self.read(session, settings)
@@ -226,6 +263,8 @@ class SettingsService:
                     new_base_url=row.new_base_url,
                     old_model=row.old_model,
                     new_model=row.new_model,
+                    old_speech_model=row.old_speech_model,
+                    new_speech_model=row.new_speech_model,
                     created_at=self._as_utc(row.created_at),
                 )
                 for row in rows
@@ -284,15 +323,41 @@ class SettingsService:
         return model
 
     @classmethod
+    def validate_chat_model(cls, value: str) -> str:
+        model = cls.validate_model(value)
+        if not is_chat_model(model):
+            raise AppError(
+                ErrorCode.INVALID_REQUEST,
+                "文本模型不能选择语音、转写、嵌入或图片模型",
+                422,
+                False,
+            )
+        return model
+
+    @classmethod
+    def validate_speech_model(cls, value: str) -> str:
+        model = cls.validate_model(value)
+        if not is_speech_model(model):
+            raise AppError(
+                ErrorCode.INVALID_REQUEST,
+                "语音模型当前仅支持 tts-1 和 tts-1-hd",
+                422,
+                False,
+            )
+        return model
+
+    @classmethod
     def _stored_configuration_is_allowed(
         cls,
         base_url: str,
         model: str,
+        speech_model: str,
         settings: Settings,
     ) -> bool:
         try:
             cls.validate_base_url(base_url, settings)
-            cls.validate_model(model)
+            cls.validate_chat_model(model)
+            cls.validate_speech_model(speech_model)
         except AppError:
             return False
         return True

@@ -33,6 +33,8 @@
 | 招聘助手 | POST | `/api/v1/recruitment/resumes/parse-file` | 是 | 已实现 |
 | 招聘助手 | POST | `/api/v1/recruitment/screenings/evaluate` | 是 | 已实现 |
 | 招聘助手 | POST | `/api/v1/recruitment/interview-kits/generate` | 是 | 已实现 |
+| 文字转语音 | POST | `/api/v1/tts/synthesize` | 是 | 已实现 |
+| 流式文字转语音 | POST | `/api/v1/tts/synthesize-stream` | 是 | 已实现 |
 | 调用审计 | GET | `/api/v1/audits` | 是 | 已实现 |
 | 调用审计 | GET | `/api/v1/audits/export` | 是 | 已实现 |
 | 管理员认证 | POST | `/api/v1/admin/login` | 是 | 已实现 |
@@ -48,7 +50,7 @@
 
 | 请求头 | 必填 | 适用范围 | 说明 |
 | --- | --- | --- | --- |
-| `Content-Type` | POST 请求必填 | 招聘接口 | 文本接口使用 `application/json`；文件接口使用 `multipart/form-data` |
+| `Content-Type` | POST 请求必填 | 业务接口 | 文本和语音请求使用 `application/json`；文件接口使用 `multipart/form-data` |
 | `X-Request-ID` | 否 | 全部接口 | 调用方请求编号，最长使用前 96 个字符；未提供时由服务生成 |
 | `X-Internal-Token` | 视环境而定 | 除健康检查外 | 服务端配置后必填；部署管理端由 Nginx 注入，其他内部调用方自行传递 |
 | `X-Caller-System` | 否 | 招聘助手 | 调用方系统标识，最长使用前 64 个字符；默认 `ai-platform-web` |
@@ -60,7 +62,7 @@
 
 ### 2.2 成功响应
 
-除 CSV 导出外，成功响应统一使用：
+除 CSV 导出和 TTS 音频二进制响应外，成功响应统一使用：
 
 ```json
 {
@@ -439,9 +441,73 @@ curl -X POST "http://<server-ip>:18554/api/v1/recruitment/resumes/parse-file" \
 | 422 | `AI_PDF_ENCRYPTED` | PDF 需要密码 |
 | 422 | `AI_RESUME_TEXT_NOT_FOUND` | 未提取到足够文本，常见于扫描版 PDF |
 
-## 6. 调用审计接口
+## 6. 文字转语音接口
 
-### 6.1 分页查询业务审计
+### 6.1 合成语音
+
+```http
+POST /api/v1/tts/synthesize
+Content-Type: application/json
+```
+
+能力编号：`tts.speech.synthesize`
+
+请求：
+
+```json
+{
+  "text": "欢迎使用 BLUEDOT AI Agent 中台。",
+  "voice": "alloy",
+  "responseFormat": "mp3",
+  "speed": 1.0
+}
+```
+
+约束：
+
+- `text`：1-4096 字符。
+- `voice`：`alloy`、`echo`、`fable`、`onyx`、`nova`、`shimmer`。
+- `responseFormat`：`mp3` 或 `wav`。
+- `speed`：0.25-4.0。
+
+成功时直接返回音频二进制，并通过响应头返回 `X-Request-ID`、`X-Audio-Model`、
+`X-Audio-Voice`、`X-Audio-Format` 和 `X-Audio-Speed`。`X-Audio-Speed` 表示生成该
+音频时实际提交的合成语速。失败时仍返回统一 JSON 错误结构。输入文本和音频不持久化；
+审计只保存文本哈希、字符数、模型、状态、耗时和上游尝试。
+
+### 6.2 流式合成与长文本
+
+```http
+POST /api/v1/tts/synthesize-stream
+Content-Type: application/json
+```
+
+请求字段与非流式接口相同，但 `responseFormat` 必须为 `mp3`。接口使用原始 MP3
+字节流而不是 SSE；响应不提供 `Content-Length`，收到首批音频后即可开始播放。
+
+约束和行为：
+
+- `text`：1-50000 字符。
+- 单次上游 Speech 请求仍不超过 4096 字符。
+- 超过 4096 字符时，服务端优先按中文 `。！？；`、英文 `.?!;` 和换行拆分，
+  其次按逗号、冒号或英文单词空格拆分，最后才按安全字符长度截段。
+- 中文和英文使用同一声音与语速连续播放，不改变或翻译原文。
+- 第一段在尚未输出音频前允许按统一策略重试；任何音频字节发出后不再透明重试。
+- 每次流式请求只产生一条业务审计，每个实际分段请求和重试均产生独立上游调用明细。
+- 浏览器不支持 MP3 MediaSource 时，前端自动回退为完整接收后播放。
+
+除通用音频响应头外，流式接口还返回：
+
+| 响应头 | 说明 |
+| --- | --- |
+| `X-Audio-Streaming` | 固定为 `true` |
+| `X-Audio-Segments` | 本次文本拆分后的上游语音段数 |
+| `X-Audio-Speed` | 生成音频时提交的合成语速 |
+| `Cache-Control` | 固定为 `no-store` |
+
+## 7. 调用审计接口
+
+### 7.1 分页查询业务审计
 
 ```http
 GET /api/v1/audits
@@ -487,6 +553,7 @@ GET /api/v1/audits?page=1&pageSize=20&status=success&capabilityCode=recruitment.
         "promptTokens": 320,
         "completionTokens": 180,
         "totalTokens": 500,
+        "requestContentLength": 1200,
         "durationMs": 3200,
         "promptVersion": "v1.0",
         "createdAt": "2026-07-24T08:00:00Z"
@@ -504,11 +571,11 @@ GET /api/v1/audits?page=1&pageSize=20&status=success&capabilityCode=recruitment.
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `requestId` | string | 业务请求编号 |
-| `businessCode` | string | 业务编号，当前为 `recruitment` |
+| `businessCode` | string | 业务编号，如 `recruitment` 或 `tts` |
 | `capabilityCode` | string | 能力编号 |
 | `callerSystem` | string | 调用方系统 |
 | `interfacePath` | string | 业务接口路径 |
-| `requestMode` | string | 当前招聘接口为 `non_stream` |
+| `requestMode` | string | `non_stream`、`stream` 或非流式 TTS 使用的 `binary` |
 | `model` | string | 实际或配置模型 |
 | `status` | string | `success` 或 `failed` |
 | `httpStatus` | integer | 业务响应 HTTP 状态 |
@@ -518,13 +585,14 @@ GET /api/v1/audits?page=1&pageSize=20&status=success&capabilityCode=recruitment.
 | `promptTokens` | integer | 输入 Token |
 | `completionTokens` | integer | 输出 Token |
 | `totalTokens` | integer | Token 总数 |
+| `requestContentLength` | integer | 请求内容字符数；TTS 用量以该字段展示 |
 | `durationMs` | integer | 业务请求耗时，单位毫秒 |
 | `promptVersion` | string | Prompt 版本 |
 | `createdAt` | datetime | 创建时间，ISO 8601 UTC，响应始终包含 `Z` 或 `+00:00` 时区标记 |
 
 当前列表接口不返回完整请求、内容哈希、提示词、模型响应或上游尝试明细。
 
-### 6.2 导出业务审计
+### 7.2 导出业务审计
 
 ```http
 GET /api/v1/audits/export
@@ -556,15 +624,16 @@ Request ID
 上游调用
 重试
 Token
+请求字符数
 耗时(ms)
 时间
 ```
 
 CSV 不包含 API Key、内部 Token、请求原文、完整提示词或模型响应。
 
-## 7. 基础配置接口
+## 8. 基础配置接口
 
-### 7.1 查询安全运行配置
+### 8.1 查询安全运行配置
 
 ```http
 GET /api/v1/settings
@@ -584,6 +653,7 @@ GET /api/v1/settings
     "apiKeyConfigured": false,
     "baseUrl": "https://api.gptsapi.net/v1",
     "model": "gpt-5.6-luna",
+    "speechModel": "tts-1",
     "connectTimeoutSeconds": 10,
     "readTimeoutSeconds": 120,
     "streamIdleTimeoutSeconds": 30,
@@ -592,6 +662,8 @@ GET /api/v1/settings
       1,
       2
     ],
+    "speechMaxInputChars": 4096,
+    "speechMaxStreamChars": 50000,
     "auditRetentionDays": 90,
     "internalAuthEnabled": true,
     "adminAuthConfigured": true,
@@ -610,7 +682,8 @@ GET /api/v1/settings
 | `mockMode` | boolean | 是否使用模拟模型 |
 | `apiKeyConfigured` | boolean | 服务端是否配置上游 Key |
 | `baseUrl` | string | 上游基础地址，不包含 Key |
-| `model` | string | 当前模型 |
+| `model` | string | 当前文本模型 |
+| `speechModel` | string | 当前语音模型 |
 | `connectTimeoutSeconds` | number | 连接超时 |
 | `readTimeoutSeconds` | number | 非流式读取超时 |
 | `streamIdleTimeoutSeconds` | number | 流空闲超时 |
@@ -625,7 +698,7 @@ GET /api/v1/settings
 
 接口永远不会返回真实 API Key、掩码 Key 或内部 Token。
 
-### 7.2 管理员登录
+### 8.2 管理员登录
 
 ```http
 POST /api/v1/admin/login
@@ -651,14 +724,14 @@ DELETE /api/v1/admin/session
 Authorization: Bearer <admin-session>
 ```
 
-### 7.3 获取上游可用模型
+### 8.3 获取上游可用模型
 
 ```http
 GET /api/v1/settings/models?baseUrl=https%3A%2F%2Fapi.gptsapi.net%2Fv1
 Authorization: Bearer <admin-session>
 ```
 
-后端使用服务端 API Key 请求受控 Base URL 的 `/models`，只向前端返回模型 ID 列表。Base URL 必须满足：
+后端使用服务端 API Key 请求受控 Base URL 的 `/models`，返回原始模型 ID，并分别提供过滤后的 `chatModels` 与 `speechModels`。Base URL 必须满足：
 
 - 使用 HTTPS。
 - 端口为 443 或省略。
@@ -668,7 +741,7 @@ Authorization: Bearer <admin-session>
 
 模型发现的成功或失败都会写入 `admin_operation_audit`，但不计入招聘业务请求数量。
 
-### 7.4 保存运行时 LLM 配置
+### 8.4 保存运行时 AI 配置
 
 ```http
 PUT /api/v1/settings/llm
@@ -681,13 +754,14 @@ Content-Type: application/json
 ```json
 {
   "baseUrl": "https://api.gptsapi.net/v1",
-  "model": "gpt-5.6-luna"
+  "model": "gpt-5.6-luna",
+  "speechModel": "tts-1"
 }
 ```
 
-保存前后端会重新获取模型列表，并确认所选模型当前可用。成功后 Base URL 和模型写入 MySQL 并立即用于后续 AI 请求，无需重启 API。API Key、超时、重试和鉴权配置仍只允许通过服务端环境变量维护。
+保存前后端会重新获取模型列表，确认文本模型属于对话能力且语音模型为 `tts-1` 或 `tts-1-hd`。成功后 Base URL、文本模型和语音模型写入 MySQL 并立即用于后续请求，无需重启 API。API Key、超时、重试和鉴权配置仍只允许通过服务端环境变量维护。
 
-### 7.5 查询管理操作审计
+### 8.5 查询管理操作审计
 
 ```http
 GET /api/v1/settings/audits?page=1&pageSize=10
@@ -696,15 +770,16 @@ Authorization: Bearer <admin-session>
 
 返回模型发现和配置保存操作，包含操作者、Request ID、状态、错误码、耗时、配置前后值和时间。审计记录不包含 API Key、管理员密码、管理员会话令牌或模型列表响应全文。
 
-## 8. 能力编号
+## 9. 能力编号
 
 | 业务 | 能力编号 | 对应接口 |
 | --- | --- | --- |
 | 招聘 | `recruitment.resume.parse` | `/recruitment/resumes/parse`、`/recruitment/resumes/parse-file` |
 | 招聘 | `recruitment.screening.evaluate` | `/recruitment/screenings/evaluate` |
 | 招聘 | `recruitment.interview-kit.generate` | `/recruitment/interview-kits/generate` |
+| 文字转语音 | `tts.speech.synthesize` | `/tts/synthesize`、`/tts/synthesize-stream` |
 
-## 9. 文档维护清单
+## 10. 文档维护清单
 
 发生以下变化时必须同步更新本文档：
 

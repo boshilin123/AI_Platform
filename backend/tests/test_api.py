@@ -32,12 +32,18 @@ def test_health_and_safe_settings(client):
     assert "apiKey" not in payload
     assert "gptsapiApiKey" not in payload
     assert payload["adminAuthConfigured"] is True
+    assert payload["speechMaxInputChars"] == 4096
+    assert payload["speechMaxStreamChars"] == 50000
 
 
 def test_admin_login_runtime_configuration_and_audit(client):
     unauthorized = client.put(
         "/api/v1/settings/llm",
-        json={"baseUrl": "https://api.gptsapi.net/v1", "model": "test-model-b"},
+        json={
+            "baseUrl": "https://api.gptsapi.net/v1",
+            "model": "test-model-b",
+            "speechModel": "tts-1",
+        },
     )
     assert unauthorized.status_code == 401
 
@@ -58,7 +64,7 @@ def test_admin_login_runtime_configuration_and_audit(client):
     class FakeCatalogClient:
         async def list_models(self, **_):
             return ModelCatalogResult(
-                models=["test-model-a", "test-model-b"],
+                models=["test-model-a", "test-model-b", "tts-1", "tts-1-hd"],
                 attempt=UpstreamAttempt(
                     attempt_no=1,
                     attempt_type="model_discovery",
@@ -78,20 +84,30 @@ def test_admin_login_runtime_configuration_and_audit(client):
             headers=admin_headers,
         )
         assert models.status_code == 200
-        assert models.json()["data"]["models"] == ["test-model-a", "test-model-b"]
+        assert models.json()["data"]["chatModels"] == ["test-model-a", "test-model-b"]
+        assert models.json()["data"]["speechModels"] == ["tts-1", "tts-1-hd"]
 
         update = client.put(
             "/api/v1/settings/llm",
-            json={"baseUrl": "https://api.gptsapi.net/v1", "model": "test-model-b"},
+            json={
+                "baseUrl": "https://api.gptsapi.net/v1",
+                "model": "test-model-b",
+                "speechModel": "tts-1-hd",
+            },
             headers=admin_headers,
         )
         assert update.status_code == 200
         assert update.json()["data"]["model"] == "test-model-b"
+        assert update.json()["data"]["speechModel"] == "tts-1-hd"
         assert update.json()["data"]["configurationSource"] == "database"
 
         rejected_url = client.put(
             "/api/v1/settings/llm",
-            json={"baseUrl": "https://untrusted.example/v1", "model": "test-model-b"},
+            json={
+                "baseUrl": "https://untrusted.example/v1",
+                "model": "test-model-b",
+                "speechModel": "tts-1",
+            },
             headers=admin_headers,
         )
         assert rejected_url.status_code == 422
@@ -161,6 +177,80 @@ def test_recruitment_flow_creates_audit_records(client):
     usage_trend = dashboard.json()["data"]["usageTrend"]
     assert len(usage_trend) == 7
     assert sum(point["requestCount"] for point in usage_trend) >= 3
+
+
+def test_tts_synthesis_returns_audio_and_creates_audit(client):
+    response = client.post(
+        "/api/v1/tts/synthesize",
+        json={
+            "text": "欢迎使用文字转语音助手。",
+            "voice": "alloy",
+            "responseFormat": "mp3",
+            "speed": 1,
+        },
+        headers={"X-Caller-System": "pytest-tts"},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("audio/wav")
+    assert response.content.startswith(b"RIFF")
+    assert response.headers["x-audio-model"]
+    assert response.headers["x-audio-speed"] == "1"
+
+    request_id = response.headers["x-request-id"]
+    audits = client.get(f"/api/v1/audits?requestId={request_id}")
+    assert audits.status_code == 200
+    item = audits.json()["data"]["items"][0]
+    assert item["businessCode"] == "tts"
+    assert item["capabilityCode"] == "tts.speech.synthesize"
+    assert item["requestMode"] == "binary"
+    assert item["requestContentLength"] == len("欢迎使用文字转语音助手。")
+    assert item["totalTokens"] == 0
+
+
+def test_tts_stream_splits_long_text_and_creates_one_business_audit(client):
+    text = ("这是用于验证长文本自动分段和流式播放的测试句子。" * 190).strip()
+    assert len(text) > 4096
+
+    response = client.post(
+        "/api/v1/tts/synthesize-stream",
+        json={
+            "text": text,
+            "voice": "alloy",
+            "responseFormat": "mp3",
+            "speed": 1,
+        },
+        headers={"X-Caller-System": "pytest-tts-stream"},
+    )
+
+    assert response.status_code == 200
+    assert response.content.startswith(b"RIFF")
+    assert response.headers["x-audio-streaming"] == "true"
+    assert response.headers["x-audio-speed"] == "1"
+    assert int(response.headers["x-audio-segments"]) >= 2
+
+    request_id = response.headers["x-request-id"]
+    audits = client.get(f"/api/v1/audits?requestId={request_id}")
+    item = audits.json()["data"]["items"][0]
+    assert item["businessCode"] == "tts"
+    assert item["capabilityCode"] == "tts.speech.synthesize"
+    assert item["requestMode"] == "stream"
+    assert item["requestContentLength"] == len(text)
+    assert item["status"] == "success"
+
+
+def test_tts_stream_rejects_wav(client):
+    response = client.post(
+        "/api/v1/tts/synthesize-stream",
+        json={
+            "text": "流式播放只支持 MP3。",
+            "voice": "alloy",
+            "responseFormat": "wav",
+            "speed": 1,
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "AI_INVALID_REQUEST"
 
 
 def test_validation_error_uses_standard_envelope(client):

@@ -44,6 +44,7 @@ function handleRuntimeConfigurationUpdate(): void {
 const navigation = [
   { to: "/", label: "工作台", group: "工作空间", icon: "home" },
   { to: "/recruitment", label: "招聘助手", group: "工作空间", icon: "recruitment" },
+  { to: "/tts", label: "文字转语音", group: "工作空间", icon: "tts" },
   { to: "/audits", label: "调用审计", group: "管理", icon: "audit" },
   { to: "/settings", label: "基础配置", group: "管理", icon: "settings" },
 ] as const;
@@ -87,6 +88,9 @@ onBeforeUnmount(() => {
             <svg v-else-if="item.icon === 'audit'" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 4h14v16H5z" /><path d="M8 8h8M8 12h8M8 16h5" />
             </svg>
+            <svg v-else-if="item.icon === 'tts'" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 14h3l4 4V6L7 10H4z" /><path d="M15 9c1.7 1.6 1.7 4.4 0 6M18 6c3.4 3.2 3.4 8.8 0 12" />
+            </svg>
             <svg v-else viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1-2.8 2.8-.1-.1a1.8 1.8 0 0 0-2-.4 1.8 1.8 0 0 0-1.1 1.6V21H10v-.1A1.8 1.8 0 0 0 8.9 19a1.8 1.8 0 0 0-2 .4l-.1.1L4 16.7l.1-.1a1.8 1.8 0 0 0 .4-2A1.8 1.8 0 0 0 3 13.5H3v-4h.1a1.8 1.8 0 0 0 1.6-1.1 1.8 1.8 0 0 0-.4-2l-.1-.1L7 3.5l.1.1a1.8 1.8 0 0 0 2 .4A1.8 1.8 0 0 0 10.2 2H14v.1A1.8 1.8 0 0 0 15.1 4a1.8 1.8 0 0 0 2-.4l.1-.1L20 6.3l-.1.1a1.8 1.8 0 0 0-.4 2 1.8 1.8 0 0 0 1.6 1.1h.1v4H21a1.8 1.8 0 0 0-1.6 1.5Z" />
             </svg>
@@ -120,7 +124,7 @@ onBeforeUnmount(() => {
       </header>
       <main class="page-content">
         <RouterView v-slot="{ Component }">
-          <KeepAlive include="RecruitmentView">
+          <KeepAlive :include="['RecruitmentView', 'TtsView']">
             <component :is="Component" />
           </KeepAlive>
         </RouterView>

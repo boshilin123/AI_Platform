@@ -43,6 +43,15 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=[
+        "X-Request-ID",
+        "X-Audio-Model",
+        "X-Audio-Voice",
+        "X-Audio-Format",
+        "X-Audio-Speed",
+        "X-Audio-Streaming",
+        "X-Audio-Segments",
+    ],
 )
 app.include_router(api_router)
 
