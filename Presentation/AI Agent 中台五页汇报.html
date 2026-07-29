@@ -1,0 +1,1641 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="AI Agent 中台一期五页汇报演示稿" />
+  <title>AI Agent 中台一期｜五页汇报</title>
+  <style>
+    :root {
+      --ink: #1f211f;
+      --body: #444844;
+      --muted: #727872;
+      --line: #dfe3df;
+      --line-soft: #edf0ed;
+      --paper: #ffffff;
+      --soft: #f5f7f5;
+      --green: #237554;
+      --green-2: #35906c;
+      --green-soft: #e8f4ed;
+      --green-line: #c7dfd1;
+      --red: #b54831;
+      --red-soft: #fff0ec;
+      --shadow: 0 22px 70px rgba(20, 25, 21, .18);
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC",
+        Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #171a18;
+      font-synthesis: none;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; min-height: 100%; margin: 0; }
+    body {
+      min-height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 14% 12%, rgba(74, 110, 91, .18), transparent 34%),
+        radial-gradient(circle at 86% 88%, rgba(97, 124, 108, .13), transparent 30%),
+        #171a18;
+    }
+    button { font: inherit; }
+    svg { display: block; }
+
+    .stage {
+      width: 100vw;
+      height: 100vh;
+      padding: 20px;
+      display: grid;
+      place-items: center;
+    }
+
+    .deck {
+      width: min(calc(100vw - 40px), calc((100vh - 40px) * 16 / 9));
+      aspect-ratio: 16 / 9;
+      position: relative;
+      overflow: hidden;
+      border-radius: 18px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      padding: 5.2% 5.7% 4.8%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 3.2%;
+      overflow: hidden;
+      background: var(--paper);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(2.2%);
+      transition: opacity .28s ease, transform .34s ease, visibility 0s linear .34s;
+      pointer-events: none;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(0);
+      transition-delay: 0s;
+      pointer-events: auto;
+    }
+
+    .slide::before {
+      content: "";
+      position: absolute;
+      width: 27%;
+      aspect-ratio: 1;
+      top: -20%;
+      right: -7%;
+      border: 1px solid var(--line-soft);
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 2.2vw rgba(245, 247, 245, .8),
+        0 0 0 4.4vw rgba(245, 247, 245, .42);
+      pointer-events: none;
+    }
+
+    .slide-header {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 4%;
+    }
+
+    .eyebrow {
+      margin-bottom: .65em;
+      display: flex;
+      align-items: center;
+      gap: .65em;
+      color: var(--green);
+      font-size: clamp(10px, 1.02vw, 16px);
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 1.9em;
+      height: 2px;
+      border-radius: 99px;
+      background: var(--green);
+    }
+
+    h1, h2, h3, p { margin: 0; }
+    h1, h2 {
+      letter-spacing: -.045em;
+      line-height: 1.12;
+    }
+
+    h1 { font-size: clamp(30px, 3.55vw, 57px); }
+    h2 { font-size: clamp(25px, 2.72vw, 44px); }
+    h3 { font-size: clamp(13px, 1.22vw, 20px); }
+
+    .header-copy {
+      max-width: 76%;
+      margin-top: .72em;
+      color: var(--muted);
+      font-size: clamp(11px, 1.12vw, 18px);
+      line-height: 1.7;
+    }
+
+    .brand {
+      position: relative;
+      z-index: 1;
+      flex: none;
+      display: flex;
+      align-items: center;
+      gap: .75em;
+      color: var(--body);
+      font-size: clamp(10px, .95vw, 15px);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .brand-logo {
+      width: clamp(30px, 3vw, 48px);
+      height: clamp(30px, 3vw, 48px);
+      padding: 5px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .brand-logo svg {
+      width: 100%;
+      height: 100%;
+      fill: none;
+      stroke: #1f211f;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+    }
+
+    .slide-body {
+      min-height: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .slide-footer {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      color: #8c918c;
+      font-size: clamp(8px, .72vw, 12px);
+      letter-spacing: .02em;
+    }
+
+    .footer-rule {
+      height: 1px;
+      flex: 1;
+      background: var(--line);
+    }
+
+    .page-no {
+      color: var(--ink);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tag {
+      min-height: 2.25em;
+      padding: 0 .9em;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      color: var(--body);
+      background: var(--soft);
+      font-size: clamp(8px, .75vw, 12px);
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .tag.green {
+      color: var(--green);
+      border-color: var(--green-line);
+      background: var(--green-soft);
+    }
+
+    .icon {
+      width: clamp(26px, 2.6vw, 42px);
+      height: clamp(26px, 2.6vw, 42px);
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    .icon svg {
+      width: 52%;
+      height: 52%;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* 01：为什么做 */
+    .hero-slide {
+      background:
+        linear-gradient(90deg, #fff 0%, #fff 67%, #f4f7f5 67%, #f4f7f5 100%);
+    }
+
+    .hero-slide::before { display: none; }
+
+    .hero-slide .slide-header {
+      align-items: center;
+    }
+
+    .hero-title {
+      max-width: 76%;
+      margin-top: .05em;
+    }
+
+    .hero-title .accent { color: var(--green); }
+
+    .hero-subtitle {
+      max-width: 78%;
+      margin-top: 1.05em;
+      color: var(--body);
+      font-size: clamp(12px, 1.22vw, 20px);
+      line-height: 1.7;
+    }
+
+    .hero-grid {
+      height: 100%;
+      display: grid;
+      grid-template-columns: 1.14fr .86fr;
+      gap: 5%;
+      align-items: center;
+    }
+
+    .problem-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4.2%;
+    }
+
+    .problem {
+      min-width: 0;
+      padding: 7.2% 7%;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(255, 255, 255, .9);
+    }
+
+    .problem-top {
+      margin-bottom: 1em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .problem-index {
+      color: #a0a5a0;
+      font-size: clamp(8px, .72vw, 12px);
+      font-weight: 800;
+    }
+
+    .problem h3 { margin-bottom: .45em; }
+    .problem p {
+      color: var(--muted);
+      font-size: clamp(9px, .82vw, 13px);
+      line-height: 1.6;
+    }
+
+    .hero-answer {
+      padding: 9% 8.5%;
+      border: 1px solid #cddbd2;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .86);
+      box-shadow: 0 16px 45px rgba(35, 117, 84, .09);
+    }
+
+    .answer-label {
+      color: var(--green);
+      font-size: clamp(9px, .8vw, 13px);
+      font-weight: 750;
+      letter-spacing: .06em;
+    }
+
+    .answer-flow {
+      margin: 8% 0;
+      display: grid;
+      gap: .55em;
+    }
+
+    .answer-flow > div {
+      min-height: 2.65em;
+      padding: 0 1em;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1em;
+      color: var(--body);
+      background: var(--soft);
+      font-size: clamp(9px, .88vw, 14px);
+      font-weight: 650;
+    }
+
+    .answer-flow > div:nth-child(2) {
+      color: #fff;
+      background: var(--ink);
+    }
+
+    .answer-flow b {
+      color: var(--green-2);
+      font-size: 1.25em;
+    }
+
+    .answer-quote {
+      padding-top: 7%;
+      border-top: 1px solid var(--line);
+      color: var(--ink);
+      font-size: clamp(11px, 1.08vw, 17px);
+      font-weight: 700;
+      line-height: 1.55;
+    }
+
+    /* 02：建设效果 */
+    .result-layout {
+      height: 100%;
+      display: grid;
+      grid-template-columns: 1.16fr .84fr;
+      gap: 3.2%;
+    }
+
+    .comparison {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 3%;
+    }
+
+    .comparison-column {
+      min-height: 0;
+      padding: 6.5%;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+    }
+
+    .comparison-column.after {
+      border-color: var(--green-line);
+      background: var(--green-soft);
+    }
+
+    .comparison-title {
+      margin-bottom: 7%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .comparison-title strong {
+      font-size: clamp(12px, 1.08vw, 17px);
+    }
+
+    .comparison-list {
+      display: grid;
+      gap: .68em;
+    }
+
+    .comparison-item {
+      min-height: 3.15em;
+      padding: .65em .78em;
+      border: 1px solid var(--line-soft);
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      gap: .75em;
+      color: var(--body);
+      background: rgba(255, 255, 255, .85);
+      font-size: clamp(8px, .78vw, 12.5px);
+      line-height: 1.35;
+    }
+
+    .comparison-item i {
+      width: 1.6em;
+      height: 1.6em;
+      flex: none;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      background: var(--soft);
+      font-style: normal;
+      font-size: .9em;
+      font-weight: 800;
+    }
+
+    .after .comparison-item i {
+      color: #fff;
+      background: var(--green);
+    }
+
+    .result-summary {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 4.5%;
+    }
+
+    .number-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 3%;
+    }
+
+    .number-card {
+      min-width: 0;
+      padding: 10% 8%;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #fff;
+    }
+
+    .number-card strong {
+      display: block;
+      color: var(--ink);
+      font-size: clamp(22px, 2.55vw, 41px);
+      letter-spacing: -.06em;
+      line-height: 1;
+    }
+
+    .number-card span {
+      margin-top: .6em;
+      display: block;
+      color: var(--muted);
+      font-size: clamp(8px, .7vw, 11px);
+      line-height: 1.4;
+    }
+
+    .capability-card {
+      padding: 7%;
+      border-radius: 16px;
+      color: #fff;
+      background: var(--ink);
+    }
+
+    .capability-card > span {
+      color: #aeb5b0;
+      font-size: clamp(8px, .72vw, 12px);
+      font-weight: 700;
+      letter-spacing: .05em;
+    }
+
+    .capability-card h3 {
+      margin: .55em 0 1em;
+      font-size: clamp(14px, 1.35vw, 22px);
+    }
+
+    .capability-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .58em;
+    }
+
+    .capability-grid div {
+      min-height: 3.05em;
+      padding: .65em .75em;
+      border: 1px solid #3d423e;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      color: #e5e8e5;
+      background: #292c2a;
+      font-size: clamp(8px, .74vw, 12px);
+      line-height: 1.35;
+    }
+
+    .truth-note {
+      padding: 4.5% 5%;
+      border-left: 3px solid var(--green);
+      color: var(--body);
+      background: var(--soft);
+      font-size: clamp(8px, .76vw, 12px);
+      line-height: 1.55;
+    }
+
+    /* 03：演示 */
+    .demo-slide {
+      background:
+        linear-gradient(145deg, #1d201e 0%, #262b28 67%, #203329 100%);
+      color: #fff;
+    }
+
+    .demo-slide::before {
+      border-color: rgba(255,255,255,.05);
+      box-shadow:
+        0 0 0 2.2vw rgba(255,255,255,.025),
+        0 0 0 4.4vw rgba(255,255,255,.015);
+    }
+
+    .demo-slide .eyebrow { color: #80c4a4; }
+    .demo-slide .eyebrow::before { background: #80c4a4; }
+    .demo-slide .header-copy { color: #aeb7b1; }
+    .demo-slide .brand { color: #e5e9e6; }
+    .demo-slide .brand-logo { border-color: #48504b; background: #fff; }
+    .demo-slide .slide-footer { color: #929c96; }
+    .demo-slide .footer-rule { background: #414843; }
+    .demo-slide .page-no { color: #fff; }
+
+    .demo-layout {
+      height: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) .72fr;
+      gap: 2.1%;
+    }
+
+    .demo-track {
+      min-height: 0;
+      padding: 6.5%;
+      border: 1px solid #414843;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .035);
+    }
+
+    .demo-track-head {
+      margin-bottom: 6%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .demo-track-head strong {
+      font-size: clamp(12px, 1.12vw, 18px);
+    }
+
+    .demo-tag {
+      min-height: 2.1em;
+      padding: 0 .75em;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      color: #91d2b1;
+      background: rgba(72, 151, 111, .2);
+      font-size: clamp(7px, .65vw, 10px);
+      font-weight: 700;
+    }
+
+    .demo-steps {
+      position: relative;
+      display: grid;
+      gap: .58em;
+    }
+
+    .demo-steps::before {
+      content: "";
+      position: absolute;
+      left: 1.25em;
+      top: 1.6em;
+      bottom: 1.6em;
+      width: 1px;
+      background: #49524c;
+    }
+
+    .demo-step {
+      min-height: 3.55em;
+      position: relative;
+      padding: .72em .75em .72em 3.45em;
+      border: 1px solid #3d443f;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      color: #d9dfdb;
+      background: #292e2b;
+    }
+
+    .demo-step b {
+      position: absolute;
+      left: .75em;
+      width: 1.75em;
+      height: 1.75em;
+      border: 1px solid #56615a;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #a8b3ac;
+      background: #242825;
+      font-size: clamp(7px, .64vw, 10px);
+      z-index: 1;
+    }
+
+    .demo-step strong {
+      font-size: clamp(9px, .82vw, 13px);
+    }
+
+    .demo-step small {
+      margin-top: .22em;
+      color: #949e98;
+      font-size: clamp(7px, .63vw, 10px);
+      line-height: 1.35;
+    }
+
+    .demo-focus {
+      min-height: 0;
+      padding: 8%;
+      border-radius: 16px;
+      color: var(--ink);
+      background: #f2f5f3;
+    }
+
+    .demo-focus h3 {
+      margin-bottom: 1em;
+      color: var(--ink);
+    }
+
+    .focus-list {
+      display: grid;
+      gap: .75em;
+    }
+
+    .focus-item {
+      padding-bottom: .75em;
+      border-bottom: 1px solid #dce2de;
+    }
+
+    .focus-item:last-child { border-bottom: 0; }
+    .focus-item strong {
+      display: block;
+      color: var(--green);
+      font-size: clamp(9px, .82vw, 13px);
+    }
+
+    .focus-item p {
+      margin-top: .35em;
+      color: var(--muted);
+      font-size: clamp(7px, .68vw, 11px);
+      line-height: 1.48;
+    }
+
+    .demo-warning {
+      margin-top: 1.1em;
+      padding: .8em;
+      border-radius: 9px;
+      color: #795f34;
+      background: #fff5d9;
+      font-size: clamp(7px, .64vw, 10px);
+      font-weight: 650;
+      line-height: 1.45;
+    }
+
+    /* 04：架构 */
+    .architecture-layout {
+      height: 100%;
+      display: grid;
+      grid-template-columns: 1.34fr .66fr;
+      gap: 3%;
+    }
+
+    .architecture-stack {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: repeat(4, minmax(0, 1fr));
+      gap: 2.4%;
+    }
+
+    .architecture-layer {
+      min-height: 0;
+      padding: 2.4% 3%;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      display: grid;
+      grid-template-columns: .48fr 1.52fr;
+      align-items: center;
+      gap: 3%;
+      background: #fff;
+    }
+
+    .architecture-layer:nth-child(1) { border-left: 5px solid var(--ink); }
+    .architecture-layer:nth-child(2) { border-left: 5px solid #547363; }
+    .architecture-layer:nth-child(3) { border-left: 5px solid #71917f; }
+    .architecture-layer:nth-child(4) {
+      border-color: var(--green-line);
+      border-left: 5px solid var(--green);
+      background: var(--green-soft);
+    }
+
+    .layer-name span {
+      display: block;
+      color: var(--muted);
+      font-size: clamp(7px, .63vw, 10px);
+      font-weight: 750;
+      letter-spacing: .06em;
+    }
+
+    .layer-name strong {
+      margin-top: .2em;
+      display: block;
+      font-size: clamp(11px, 1.02vw, 16px);
+    }
+
+    .layer-items {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: .52em;
+      flex-wrap: wrap;
+    }
+
+    .layer-items span {
+      min-height: 2.35em;
+      padding: 0 .82em;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      color: var(--body);
+      background: #fff;
+      font-size: clamp(8px, .72vw, 11.5px);
+      font-weight: 650;
+    }
+
+    .architecture-notes {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 4%;
+    }
+
+    .principle-card {
+      padding: 7%;
+      border-radius: 15px;
+      color: #fff;
+      background: var(--ink);
+    }
+
+    .principle-card span {
+      color: #aeb5b0;
+      font-size: clamp(8px, .7vw, 11px);
+      font-weight: 700;
+    }
+
+    .principle-card strong {
+      margin-top: .7em;
+      display: block;
+      font-size: clamp(13px, 1.18vw, 19px);
+      line-height: 1.48;
+    }
+
+    .boundary-list {
+      padding: 7%;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--soft);
+    }
+
+    .boundary-list h3 { margin-bottom: 1em; }
+
+    .boundary-list div {
+      min-height: 2.85em;
+      padding: .55em 0;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: .72em;
+      color: var(--body);
+      font-size: clamp(8px, .72vw, 11.5px);
+      line-height: 1.35;
+    }
+
+    .boundary-list div:last-child { border-bottom: 0; }
+    .boundary-list i {
+      width: 1.55em;
+      height: 1.55em;
+      flex: none;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--green);
+      background: var(--green-soft);
+      font-style: normal;
+      font-weight: 800;
+    }
+
+    .tech-strip {
+      padding: 5.5% 6%;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      color: var(--muted);
+      background: #fff;
+      font-size: clamp(8px, .71vw, 11px);
+      line-height: 1.65;
+    }
+
+    .tech-strip strong {
+      display: block;
+      margin-bottom: .3em;
+      color: var(--ink);
+      font-size: 1.1em;
+    }
+
+    /* 05：接入模板 */
+    .template-layout {
+      height: 100%;
+      display: grid;
+      grid-template-rows: .85fr 1.15fr;
+      gap: 4%;
+    }
+
+    .access-flow {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 1.5%;
+      align-items: stretch;
+    }
+
+    .access-step {
+      min-width: 0;
+      padding: 9% 8%;
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #fff;
+    }
+
+    .access-step:not(:last-child)::after {
+      content: "›";
+      position: absolute;
+      right: -8.5%;
+      top: 50%;
+      z-index: 2;
+      color: #98a099;
+      font-size: clamp(15px, 1.55vw, 25px);
+      font-weight: 300;
+      transform: translateY(-55%);
+    }
+
+    .access-step b {
+      width: 2em;
+      height: 2em;
+      margin-bottom: .65em;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: var(--ink);
+      font-size: clamp(8px, .7vw, 11px);
+    }
+
+    .access-step:last-child {
+      border-color: var(--green-line);
+      background: var(--green-soft);
+    }
+
+    .access-step:last-child b { background: var(--green); }
+    .access-step strong {
+      display: block;
+      font-size: clamp(9px, .82vw, 13px);
+      line-height: 1.35;
+    }
+
+    .access-step span {
+      margin-top: .4em;
+      display: block;
+      color: var(--muted);
+      font-size: clamp(7px, .62vw, 10px);
+      line-height: 1.4;
+    }
+
+    .template-bottom {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1.12fr .88fr;
+      gap: 3%;
+    }
+
+    .responsibility-card {
+      min-height: 0;
+      padding: 5%;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: #fff;
+    }
+
+    .responsibility-card h3 { margin-bottom: 4%; }
+
+    .responsibility-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 3%;
+    }
+
+    .responsibility {
+      padding: 5%;
+      border-radius: 11px;
+      background: var(--soft);
+    }
+
+    .responsibility.platform { background: var(--green-soft); }
+    .responsibility strong {
+      display: block;
+      margin-bottom: .6em;
+      color: var(--green);
+      font-size: clamp(9px, .82vw, 13px);
+    }
+
+    .responsibility ul {
+      margin: 0;
+      padding-left: 1.15em;
+      color: var(--body);
+      font-size: clamp(7px, .68vw, 11px);
+      line-height: 1.72;
+    }
+
+    .future-panel {
+      min-height: 0;
+      padding: 6%;
+      border-radius: 15px;
+      display: flex;
+      flex-direction: column;
+      color: #fff;
+      background: var(--ink);
+    }
+
+    .future-panel > span {
+      color: #aeb5b0;
+      font-size: clamp(8px, .7vw, 11px);
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+
+    .future-panel h3 {
+      margin: .55em 0 .8em;
+      font-size: clamp(13px, 1.22vw, 20px);
+      line-height: 1.42;
+    }
+
+    .future-tags {
+      display: flex;
+      gap: .48em;
+      flex-wrap: wrap;
+    }
+
+    .future-tags span {
+      min-height: 2.25em;
+      padding: 0 .78em;
+      border: 1px solid #454c47;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      color: #dce2de;
+      background: #2b302d;
+      font-size: clamp(7px, .65vw, 10.5px);
+    }
+
+    .closing-line {
+      margin-top: auto;
+      padding-top: 6%;
+      border-top: 1px solid #414843;
+      color: #8ed0ae;
+      font-size: clamp(9px, .91vw, 14.5px);
+      font-weight: 700;
+      line-height: 1.55;
+    }
+
+    /* 控制栏 */
+    .controls {
+      position: fixed;
+      left: 50%;
+      bottom: max(10px, env(safe-area-inset-bottom));
+      z-index: 100;
+      padding: 7px 9px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(19, 22, 20, .82);
+      box-shadow: 0 8px 28px rgba(0,0,0,.24);
+      backdrop-filter: blur(12px);
+      transform: translateX(-50%);
+    }
+
+    .control-button {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #e6eae7;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .control-button:hover:not(:disabled) { background: rgba(255,255,255,.1); }
+    .control-button:disabled { opacity: .28; cursor: default; }
+    .control-button svg {
+      width: 17px;
+      height: 17px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .dots {
+      padding: 0 5px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      padding: 0;
+      border: 0;
+      border-radius: 999px;
+      background: #69716c;
+      cursor: pointer;
+      transition: width .2s, background .2s;
+    }
+
+    .dot.active { width: 18px; background: #86c8a6; }
+
+    .key-hint {
+      position: fixed;
+      right: 18px;
+      bottom: 17px;
+      z-index: 90;
+      color: rgba(255,255,255,.46);
+      font-size: 10px;
+      letter-spacing: .02em;
+    }
+
+    .progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 120;
+      width: 20%;
+      height: 3px;
+      background: #6ab18c;
+      transition: width .28s ease;
+    }
+
+    @media (max-width: 720px) {
+      .stage { padding: 0; }
+      .deck {
+        width: 100vw;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .controls { bottom: 6px; }
+      .key-hint { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .slide, .progress, .dot { transition: none; }
+    }
+
+    @media print {
+      @page { size: 13.333in 7.5in; margin: 0; }
+      html, body {
+        width: auto;
+        height: auto;
+        overflow: visible;
+        background: #fff;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+      .stage {
+        width: auto;
+        height: auto;
+        padding: 0;
+        display: block;
+      }
+      .deck {
+        width: auto;
+        aspect-ratio: auto;
+        overflow: visible;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .slide {
+        width: 13.333in;
+        height: 7.5in;
+        position: relative;
+        inset: auto;
+        page-break-after: always;
+        break-after: page;
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+      }
+      .slide:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+      .controls, .key-hint, .progress { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" aria-hidden="true"></div>
+
+  <main class="stage">
+    <div class="deck" aria-live="polite">
+      <!-- 01 -->
+      <section class="slide hero-slide active" data-title="为什么要建设 AI Agent 中台">
+        <header class="slide-header">
+          <div>
+            <div class="eyebrow">AI AGENT PLATFORM · PHASE 1</div>
+            <h1 class="hero-title">从分散调用 AI，走向<span class="accent">统一能力服务</span></h1>
+            <p class="hero-subtitle">
+              AI Agent 中台一期——企业统一 AI 能力服务和业务场景接入底座
+            </p>
+          </div>
+          <div class="brand">
+            <span class="brand-logo" aria-label="公司 Logo">
+              <svg viewBox="0 0 32 32" role="img" aria-hidden="true">
+                <circle cx="16" cy="16" r="13.5"/>
+                <path d="M7.2 20.8c5.8 2.9 11.5-4.2 7.7-9.4-2.4-3.3-7.1-1.8-7.9 1.5-1.3 5.3 4.2 10.6 9.5 10.8 6.4.3 10.9-5.8 9.2-11.8"/>
+                <path d="M9.5 24.4c7.4 2.5 14.5-3 14.4-10.3-.1-5.2-5.3-8.7-9.8-6.7-3.9 1.8-4.6 6.9-1.7 9.8 2.4 2.4 6.7 1.4 7.5-1.9.7-2.9-2.4-5.3-4.8-3.6"/>
+                <path d="M5.3 16.4c-.2 7.3 6 12.2 12.8 12.1"/>
+              </svg>
+            </span>
+            <span>AI Agent 中台</span>
+          </div>
+        </header>
+
+        <div class="slide-body hero-grid">
+          <div class="problem-list">
+            <article class="problem">
+              <div class="problem-top">
+                <span class="icon">
+                  <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg>
+                </span>
+                <span class="problem-index">01</span>
+              </div>
+              <h3>密钥安全风险</h3>
+              <p>真实 API Key 分散到各业务系统，难以控制使用边界。</p>
+            </article>
+            <article class="problem">
+              <div class="problem-top">
+                <span class="icon">
+                  <svg viewBox="0 0 24 24"><path d="M8 6h11v11H8z"/><path d="M5 9H3v11h11v-2M11 9l5 5M16 9v5h-5"/></svg>
+                </span>
+                <span class="problem-index">02</span>
+              </div>
+              <h3>重复建设</h3>
+              <p>招聘、培训、运维等项目重复开发模型调用逻辑。</p>
+            </article>
+            <article class="problem">
+              <div class="problem-top">
+                <span class="icon">
+                  <svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
+                </span>
+                <span class="problem-index">03</span>
+              </div>
+              <h3>缺少统一治理</h3>
+              <p>调用、Token、耗时、失败和成本依据无法集中掌握。</p>
+            </article>
+            <article class="problem">
+              <div class="problem-top">
+                <span class="icon">
+                  <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg>
+                </span>
+                <span class="problem-index">04</span>
+              </div>
+              <h3>接入成本高</h3>
+              <p>每增加一个场景，都要重新处理重试、异常和审计。</p>
+            </article>
+          </div>
+
+          <aside class="hero-answer">
+            <span class="answer-label">我们的解法</span>
+            <div class="answer-flow">
+              <div><span>一个服务端 API Key</span><b>↓</b></div>
+              <div><span>统一安全调用与治理</span><b>↓</b></div>
+              <div><span>封装可复用 AI 能力</span><b>↓</b></div>
+              <div><span>接入不同业务场景</span><b>✓</b></div>
+            </div>
+            <p class="answer-quote">
+              不是做一个聊天页面，而是建设公司内部 AI 能力底座。
+            </p>
+          </aside>
+        </div>
+
+        <footer class="slide-footer">
+          <span>BLUEDOT AI · INTERNAL PRESENTATION</span>
+          <span class="footer-rule"></span>
+          <span class="page-no">01 / 05</span>
+        </footer>
+      </section>
+
+      <!-- 02 -->
+      <section class="slide" data-title="目前建设效果">
+        <header class="slide-header">
+          <div>
+            <div class="eyebrow">CURRENT RESULT</div>
+            <h2>从单一招聘功能，扩展为可复用平台雏形</h2>
+            <p class="header-copy">当前完成的是技术可行性、能力复用和完整业务链路验证。</p>
+          </div>
+          <span class="tag green">一期成果</span>
+        </header>
+
+        <div class="slide-body result-layout">
+          <div class="comparison">
+            <article class="comparison-column before">
+              <div class="comparison-title">
+                <strong>建设前</strong>
+                <span class="tag">分散模式</span>
+              </div>
+              <div class="comparison-list">
+                <div class="comparison-item"><i>×</i><span>各系统分别持有 API Key</span></div>
+                <div class="comparison-item"><i>×</i><span>重复开发模型连接与异常处理</span></div>
+                <div class="comparison-item"><i>×</i><span>调用情况和失败原因难以追踪</span></div>
+                <div class="comparison-item"><i>×</i><span>新增业务需要从零搭建</span></div>
+                <div class="comparison-item"><i>×</i><span>成本缺少统一统计依据</span></div>
+              </div>
+            </article>
+
+            <article class="comparison-column after">
+              <div class="comparison-title">
+                <strong>建设后</strong>
+                <span class="tag green">统一模式</span>
+              </div>
+              <div class="comparison-list">
+                <div class="comparison-item"><i>✓</i><span>Key 仅保存在服务端</span></div>
+                <div class="comparison-item"><i>✓</i><span>统一文本与语音调用基础设施</span></div>
+                <div class="comparison-item"><i>✓</i><span>Request ID 全链路追踪</span></div>
+                <div class="comparison-item"><i>✓</i><span>统一重试、错误转换与审计</span></div>
+                <div class="comparison-item"><i>✓</i><span>统计 Token、字符数与耗时</span></div>
+              </div>
+            </article>
+          </div>
+
+          <aside class="result-summary">
+            <div class="number-strip">
+              <div class="number-card"><strong>2</strong><span>业务场景</span></div>
+              <div class="number-card"><strong>2</strong><span>AI 接口类型</span></div>
+              <div class="number-card"><strong>1</strong><span>统一治理底座</span></div>
+            </div>
+
+            <div class="capability-card">
+              <span>已验证能力</span>
+              <h3>招聘助手 + 文字转语音</h3>
+              <div class="capability-grid">
+                <div>结构化输出</div>
+                <div>流式语音</div>
+                <div>长文本分段</div>
+                <div>运行时配置</div>
+                <div>统一审计</div>
+                <div>容器化部署</div>
+              </div>
+            </div>
+
+            <p class="truth-note">
+              当前重点是验证“同一套安全、配置、调用和审计能力，可以支撑不同业务及不同 AI 接口”。
+            </p>
+          </aside>
+        </div>
+
+        <footer class="slide-footer">
+          <span>效果：安全收口 · 能力复用 · 统一治理</span>
+          <span class="footer-rule"></span>
+          <span class="page-no">02 / 05</span>
+        </footer>
+      </section>
+
+      <!-- 03 -->
+      <section class="slide demo-slide" data-title="现场演示">
+        <header class="slide-header">
+          <div>
+            <div class="eyebrow">LIVE DEMO</div>
+            <h2>从业务调用到平台审计的完整闭环</h2>
+            <p class="header-copy">两条演示路线，重点看能力复用、过程追踪和治理数据。</p>
+          </div>
+          <span class="tag green">建议 4–5 分钟</span>
+        </header>
+
+        <div class="slide-body demo-layout">
+          <article class="demo-track">
+            <div class="demo-track-head">
+              <strong>演示一｜招聘助手</strong>
+              <span class="demo-tag">文本能力</span>
+            </div>
+            <div class="demo-steps">
+              <div class="demo-step"><b>01</b><strong>提交虚构简历</strong><small>PDF / DOCX / 粘贴文本</small></div>
+              <div class="demo-step"><b>02</b><strong>完成招聘流程</strong><small>简历解析 → 岗位初筛 → 面试题</small></div>
+              <div class="demo-step"><b>03</b><strong>查看结构化结果</strong><small>步骤间数据自动沿用</small></div>
+              <div class="demo-step"><b>04</b><strong>复制 Request ID</strong><small>进入调用审计查询</small></div>
+            </div>
+          </article>
+
+          <article class="demo-track">
+            <div class="demo-track-head">
+              <strong>演示二｜文字转语音</strong>
+              <span class="demo-tag">语音能力</span>
+            </div>
+            <div class="demo-steps">
+              <div class="demo-step"><b>01</b><strong>输入虚构文本</strong><small>选择声音、语速和格式</small></div>
+              <div class="demo-step"><b>02</b><strong>生成并试听</strong><small>可选流式播放与下载</small></div>
+              <div class="demo-step"><b>03</b><strong>说明长文本处理</strong><small>自动分段但保持一个业务请求</small></div>
+              <div class="demo-step"><b>04</b><strong>查看统一审计</strong><small>字符数、耗时、模型和结果</small></div>
+            </div>
+          </article>
+
+          <aside class="demo-focus">
+            <h3>演示重点</h3>
+            <div class="focus-list">
+              <div class="focus-item">
+                <strong>业务可用</strong>
+                <p>不是静态原型，能够完成真实调用与结果交付。</p>
+              </div>
+              <div class="focus-item">
+                <strong>全程可追踪</strong>
+                <p>一个 Request ID 串联业务请求和上游调用。</p>
+              </div>
+              <div class="focus-item">
+                <strong>治理能力复用</strong>
+                <p>招聘与 TTS 共用配置、安全、错误和审计底座。</p>
+              </div>
+            </div>
+            <div class="demo-warning">演示只使用虚构简历和非敏感文本</div>
+          </aside>
+        </div>
+
+        <footer class="slide-footer">
+          <span>切换到系统演示：工作台 → 招聘 / TTS → 调用审计</span>
+          <span class="footer-rule"></span>
+          <span class="page-no">03 / 05</span>
+        </footer>
+      </section>
+
+      <!-- 04 -->
+      <section class="slide" data-title="整体技术架构">
+        <header class="slide-header">
+          <div>
+            <div class="eyebrow">TECHNICAL ARCHITECTURE</div>
+            <h2>四层架构支撑能力复用与统一治理</h2>
+            <p class="header-copy">业务场景只关注业务流程，通用问题由中台统一解决。</p>
+          </div>
+          <span class="tag">模块化单体</span>
+        </header>
+
+        <div class="slide-body architecture-layout">
+          <div class="architecture-stack">
+            <article class="architecture-layer">
+              <div class="layer-name"><span>LAYER 04</span><strong>业务场景层</strong></div>
+              <div class="layer-items">
+                <span>招聘助手</span><span>文字转语音助手</span><span>未来业务场景</span>
+              </div>
+            </article>
+            <article class="architecture-layer">
+              <div class="layer-name"><span>LAYER 03</span><strong>通用能力层</strong></div>
+              <div class="layer-items">
+                <span>结构化内容生成</span><span>语音合成</span><span>能力执行与校验</span>
+              </div>
+            </article>
+            <article class="architecture-layer">
+              <div class="layer-name"><span>LAYER 02</span><strong>基础调用层</strong></div>
+              <div class="layer-items">
+                <span>文本模型调用</span><span>语音模型调用</span><span>流式处理</span>
+                <span>超时重试</span><span>错误转换</span><span>格式修复</span>
+              </div>
+            </article>
+            <article class="architecture-layer">
+              <div class="layer-name"><span>LAYER 01</span><strong>平台治理层</strong></div>
+              <div class="layer-items">
+                <span>配置管理</span><span>调用审计</span><span>Token / 耗时</span>
+                <span>Request ID</span><span>安全控制</span><span>运行状态</span>
+              </div>
+            </article>
+          </div>
+
+          <aside class="architecture-notes">
+            <div class="principle-card">
+              <span>核心原则</span>
+              <strong>场景做业务编排，中台做统一能力与治理。</strong>
+            </div>
+
+            <div class="boundary-list">
+              <h3>关键安全边界</h3>
+              <div><i>✓</i><span>真实 API Key 不进入前端</span></div>
+              <div><i>✓</i><span>简历和完整响应不进入普通审计</span></div>
+              <div><i>✓</i><span>业务请求与上游调用分开统计</span></div>
+              <div><i>✓</i><span>配置修改需要管理员会话</span></div>
+            </div>
+
+            <div class="tech-strip">
+              <strong>当前技术基线</strong>
+              Vue 3 · FastAPI · SQLAlchemy · MySQL · Alembic · Docker Compose
+            </div>
+          </aside>
+        </div>
+
+        <footer class="slide-footer">
+          <span>统一底座保持稳定，业务场景按模块扩展</span>
+          <span class="footer-rule"></span>
+          <span class="page-no">04 / 05</span>
+        </footer>
+      </section>
+
+      <!-- 05 -->
+      <section class="slide" data-title="其他业务如何统一接入">
+        <header class="slide-header">
+          <div>
+            <div class="eyebrow">SCENARIO ONBOARDING TEMPLATE</div>
+            <h2>通过标准场景模板快速接入新业务</h2>
+            <p class="header-copy">新增业务只实现自身输入、流程编排和结果展示，其他能力直接复用。</p>
+          </div>
+          <span class="tag green">可复制接入</span>
+        </header>
+
+        <div class="slide-body template-layout">
+          <div class="access-flow">
+            <article class="access-step">
+              <b>01</b><strong>定义业务目标</strong><span>用户、价值与使用边界</span>
+            </article>
+            <article class="access-step">
+              <b>02</b><strong>定义输入协议</strong><span>文本、文件和业务参数</span>
+            </article>
+            <article class="access-step">
+              <b>03</b><strong>定义输出协议</strong><span>JSON、文本、音频或文件</span>
+            </article>
+            <article class="access-step">
+              <b>04</b><strong>编排 AI 能力</strong><span>调用文本、语音等能力</span>
+            </article>
+            <article class="access-step">
+              <b>05</b><strong>接入治理规则</strong><span>安全、审计和错误处理</span>
+            </article>
+            <article class="access-step">
+              <b>06</b><strong>验收与发布</strong><span>测试、部署和运行监控</span>
+            </article>
+          </div>
+
+          <div class="template-bottom">
+            <article class="responsibility-card">
+              <h3>接入时的责任边界</h3>
+              <div class="responsibility-grid">
+                <div class="responsibility">
+                  <strong>新业务负责</strong>
+                  <ul>
+                    <li>业务输入和输出定义</li>
+                    <li>场景流程与规则编排</li>
+                    <li>业务页面和结果展示</li>
+                    <li>场景验收标准</li>
+                  </ul>
+                </div>
+                <div class="responsibility platform">
+                  <strong>中台统一提供</strong>
+                  <ul>
+                    <li>API Key 与模型连接</li>
+                    <li>超时、重试和错误转换</li>
+                    <li>Request ID 与调用审计</li>
+                    <li>用量统计与安全边界</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <aside class="future-panel">
+              <span>可按模板接入的下一批场景</span>
+              <h3>让新增业务从“重复建设”变成“能力组装”</h3>
+              <div class="future-tags">
+                <span>文档转换</span>
+                <span>培训陪练</span>
+                <span>运维分析</span>
+                <span>内容生成</span>
+                <span>更多内部业务</span>
+              </div>
+              <p class="closing-line">
+                先把企业 AI 能力统一、安全地用起来，再逐步演进为可编排、可治理的完整 AI Agent 中台。
+              </p>
+            </aside>
+          </div>
+        </div>
+
+        <footer class="slide-footer">
+          <span>统一接入标准，让能力沉淀一次、业务复用多次</span>
+          <span class="footer-rule"></span>
+          <span class="page-no">05 / 05</span>
+        </footer>
+      </section>
+    </div>
+  </main>
+
+  <nav class="controls" aria-label="幻灯片控制">
+    <button class="control-button previous" type="button" aria-label="上一页" title="上一页（←）">
+      <svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="dots" aria-label="选择页面"></div>
+    <button class="control-button next" type="button" aria-label="下一页" title="下一页（→ / 空格）">
+      <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+    <button class="control-button fullscreen" type="button" aria-label="切换全屏" title="全屏（F）">
+      <svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+    </button>
+  </nav>
+
+  <div class="key-hint">← → 翻页 · F 全屏 · P 打印</div>
+
+  <script>
+    (() => {
+      const slides = Array.from(document.querySelectorAll(".slide"));
+      const dotsContainer = document.querySelector(".dots");
+      const previousButton = document.querySelector(".previous");
+      const nextButton = document.querySelector(".next");
+      const fullscreenButton = document.querySelector(".fullscreen");
+      const progress = document.querySelector(".progress");
+      let currentIndex = 0;
+      let touchStartX = null;
+
+      const dots = slides.map((slide, index) => {
+        const button = document.createElement("button");
+        button.className = "dot";
+        button.type = "button";
+        button.setAttribute("aria-label", `第 ${index + 1} 页：${slide.dataset.title}`);
+        button.addEventListener("click", () => showSlide(index));
+        dotsContainer.appendChild(button);
+        return button;
+      });
+
+      function showSlide(index) {
+        currentIndex = Math.max(0, Math.min(index, slides.length - 1));
+        slides.forEach((slide, slideIndex) => {
+          const isActive = slideIndex === currentIndex;
+          slide.classList.toggle("active", isActive);
+          slide.setAttribute("aria-hidden", String(!isActive));
+        });
+        dots.forEach((dot, dotIndex) => dot.classList.toggle("active", dotIndex === currentIndex));
+        previousButton.disabled = currentIndex === 0;
+        nextButton.disabled = currentIndex === slides.length - 1;
+        progress.style.width = `${((currentIndex + 1) / slides.length) * 100}%`;
+        document.title = `${slides[currentIndex].dataset.title}｜AI Agent 中台`;
+        history.replaceState(null, "", `#${currentIndex + 1}`);
+      }
+
+      function toggleFullscreen() {
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        } else {
+          document.documentElement.requestFullscreen?.();
+        }
+      }
+
+      previousButton.addEventListener("click", () => showSlide(currentIndex - 1));
+      nextButton.addEventListener("click", () => showSlide(currentIndex + 1));
+      fullscreenButton.addEventListener("click", toggleFullscreen);
+
+      document.addEventListener("keydown", (event) => {
+        if (["ArrowRight", "PageDown", " "].includes(event.key)) {
+          event.preventDefault();
+          showSlide(currentIndex + 1);
+        } else if (["ArrowLeft", "PageUp"].includes(event.key)) {
+          event.preventDefault();
+          showSlide(currentIndex - 1);
+        } else if (event.key === "Home") {
+          showSlide(0);
+        } else if (event.key === "End") {
+          showSlide(slides.length - 1);
+        } else if (event.key.toLowerCase() === "f") {
+          toggleFullscreen();
+        } else if (event.key.toLowerCase() === "p") {
+          window.print();
+        }
+      });
+
+      document.addEventListener("touchstart", (event) => {
+        touchStartX = event.changedTouches[0]?.clientX ?? null;
+      }, { passive: true });
+
+      document.addEventListener("touchend", (event) => {
+        if (touchStartX === null) return;
+        const endX = event.changedTouches[0]?.clientX ?? touchStartX;
+        const distance = endX - touchStartX;
+        if (Math.abs(distance) > 45) showSlide(currentIndex + (distance < 0 ? 1 : -1));
+        touchStartX = null;
+      }, { passive: true });
+
+      const hashIndex = Number.parseInt(location.hash.slice(1), 10) - 1;
+      showSlide(Number.isInteger(hashIndex) ? hashIndex : 0);
+    })();
+  </script>
+</body>
+</html>
