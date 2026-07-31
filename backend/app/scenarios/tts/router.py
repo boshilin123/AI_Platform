@@ -97,6 +97,8 @@ async def stream_speech(
         model=runtime_config.speech_model,
         max_segment_chars=settings.speech_max_input_chars,
         max_stream_chars=settings.speech_max_stream_chars,
+        first_segment_chars=settings.speech_stream_first_segment_chars,
+        following_segment_chars=settings.speech_stream_segment_chars,
         payload=payload,
     )
     return StreamingResponse(

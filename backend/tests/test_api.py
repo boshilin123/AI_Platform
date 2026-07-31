@@ -238,6 +238,25 @@ def test_tts_stream_splits_long_text_and_creates_one_business_audit(client):
     assert item["status"] == "success"
 
 
+def test_tts_stream_uses_fast_start_segmentation(client):
+    text = "这是用于验证流式语音快速启动分段策略的测试文本。" * 20
+    assert 400 < len(text) < 4096
+
+    response = client.post(
+        "/api/v1/tts/synthesize-stream",
+        json={
+            "text": text,
+            "voice": "alloy",
+            "responseFormat": "mp3",
+            "speed": 1,
+        },
+        headers={"X-Caller-System": "pytest-tts-fast-start"},
+    )
+
+    assert response.status_code == 200
+    assert int(response.headers["x-audio-segments"]) == 2
+
+
 def test_tts_stream_rejects_wav(client):
     response = client.post(
         "/api/v1/tts/synthesize-stream",

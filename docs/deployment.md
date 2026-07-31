@@ -69,6 +69,8 @@ docker ps --filter label=com.docker.compose.project=bluedot-ai-platform
 - `WEB_PORT`，当前约定为 `18554`
 - `NGINX_CLIENT_MAX_BODY_SIZE`，默认 `11m`，应略大于后端简历上传上限
 - `SPEECH_MAX_STREAM_CHARS`，默认 `50000`，限制单次长文本流式任务的总字符数
+- `SPEECH_STREAM_FIRST_SEGMENT_CHARS`，默认 `120`，控制流式首段长度以缩短首音频等待
+- `SPEECH_STREAM_SEGMENT_CHARS`，默认 `400`，控制首段之后的流式分段长度
 
 首次部署：
 

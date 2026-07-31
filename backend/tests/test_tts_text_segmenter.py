@@ -28,3 +28,37 @@ def test_segments_unpunctuated_text_without_losing_characters():
 
     assert "".join(segments) == text
     assert all(1 <= len(segment) <= 17 for segment in segments)
+
+
+def test_streaming_uses_short_first_segment_and_larger_following_segments():
+    text = (
+        "第一部分用于尽快生成首批音频，同时尽量保留自然停顿。"
+        "第二部分继续说明后续内容会使用更大的分段长度，以减少上游调用次数。"
+        "第三部分补充足够多的文本，验证所有内容都能够按顺序保留下来。"
+    ) * 5
+
+    segments = SpeechTextSegmenter().split_for_streaming(
+        text,
+        first_max_chars=120,
+        following_max_chars=400,
+    )
+
+    assert "".join(segments) == text
+    assert len(segments[0]) <= 120
+    assert all(len(segment) <= 400 for segment in segments[1:])
+    assert len(segments) >= 2
+
+
+def test_streaming_segment_limits_must_be_positive():
+    segmenter = SpeechTextSegmenter()
+
+    try:
+        segmenter.split_for_streaming(
+            "测试文本",
+            first_max_chars=0,
+            following_max_chars=400,
+        )
+    except ValueError as error:
+        assert str(error) == "segment limits must be positive"
+    else:
+        raise AssertionError("zero first segment limit should be rejected")

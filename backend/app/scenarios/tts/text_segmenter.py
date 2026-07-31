@@ -8,16 +8,44 @@ class SpeechTextSegmenter:
     SOFT_BOUNDARIES = frozenset("，,、：:")
 
     def split(self, text: str, max_chars: int) -> list[str]:
+        return self._split_with_limits(
+            text,
+            first_max_chars=max_chars,
+            following_max_chars=max_chars,
+        )
+
+    def split_for_streaming(
+        self,
+        text: str,
+        *,
+        first_max_chars: int,
+        following_max_chars: int,
+    ) -> list[str]:
+        """Create a short first segment so upstream audio can start sooner."""
+        return self._split_with_limits(
+            text,
+            first_max_chars=first_max_chars,
+            following_max_chars=following_max_chars,
+        )
+
+    def _split_with_limits(
+        self,
+        text: str,
+        *,
+        first_max_chars: int,
+        following_max_chars: int,
+    ) -> list[str]:
         normalized = text.strip()
         if not normalized:
             return []
-        if max_chars < 1:
-            raise ValueError("max_chars must be positive")
+        if first_max_chars < 1 or following_max_chars < 1:
+            raise ValueError("segment limits must be positive")
 
         segments: list[str] = []
         cursor = 0
         text_length = len(normalized)
         while cursor < text_length:
+            max_chars = first_max_chars if not segments else following_max_chars
             hard_end = min(cursor + max_chars, text_length)
             if hard_end == text_length:
                 segment = normalized[cursor:hard_end].strip()

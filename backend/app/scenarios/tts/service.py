@@ -67,6 +67,8 @@ class TtsService:
         model: str,
         max_segment_chars: int,
         max_stream_chars: int,
+        first_segment_chars: int,
+        following_segment_chars: int,
         payload: SpeechSynthesisRequest,
     ) -> SpeechStreamingResult:
         if payload.response_format != "mp3":
@@ -84,7 +86,11 @@ class TtsService:
                 False,
             )
 
-        segments = self.segmenter.split(payload.text, max_segment_chars)
+        segments = self.segmenter.split_for_streaming(
+            payload.text,
+            first_max_chars=min(first_segment_chars, max_segment_chars),
+            following_max_chars=min(following_segment_chars, max_segment_chars),
+        )
         requests = [
             SpeechRequest(
                 text=segment,

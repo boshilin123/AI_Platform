@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     recruitment_max_docx_uncompressed_mb: int = Field(default=50, ge=1, le=200)
     speech_max_input_chars: int = Field(default=4096, ge=1, le=4096)
     speech_max_stream_chars: int = Field(default=50_000, ge=4096, le=200_000)
+    speech_stream_first_segment_chars: int = Field(default=120, ge=1, le=4096)
+    speech_stream_segment_chars: int = Field(default=400, ge=1, le=4096)
     speech_max_audio_mb: int = Field(default=25, ge=1, le=100)
 
     @field_validator("app_cors_origins", mode="before")
